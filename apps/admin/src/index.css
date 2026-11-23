@@ -1,0 +1,31 @@
+/* ─────────────────────────────────────────────
+   apps/admin — app-level styles.
+
+   This file used to carry the scaffold's stylesheet verbatim: ~100 CSS
+   variables (oklch surfaces, chart colours, a whole `--sidebar-*` set) that
+   not one admin component referenced, a `.dark` block for a theme the app
+   does not have, and an `@theme inline` that redefined `--font-serif` as Jost
+   — so `font-serif` here would have rendered nothing like it does in
+   apps/web. Two apps, one design system: the tokens now come from
+   packages/ui, the same place apps/web gets them.
+───────────────────────────────────────────── */
+/* Hide scrollbars on containers that carry their own scroll affordance. */
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+aside,
+aside * {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+aside::-webkit-scrollbar,
+aside *::-webkit-scrollbar {
+  display: none;
+}

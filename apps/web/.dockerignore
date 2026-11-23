@@ -1,0 +1,19 @@
+# Never copy the host's modules — `npm ci` installs them for the build platform
+node_modules/
+
+# Build output — produced inside the image
+dist/
+
+# Secrets
+.env
+.env.*
+!.env.example
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+
+# Docker
+Dockerfile
+.dockerignore

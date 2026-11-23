@@ -1,0 +1,109 @@
+# Cabmora admin — nginx runtime config
+#
+# Two jobs:
+#   1. Serve the built SPA with correct cache semantics.
+#   2. Reverse-proxy /api to the cabmora-api deployment.
+#
+# (2) is what makes the frontend work unchanged in production:
+# packages/api-client/src/client.ts uses a RELATIVE base URL ("/api/v1"), so the browser
+# calls the same origin it loaded from. No absolute API URL is baked at build
+# time, and no CORS preflight happens in production.
+
+server {
+    # Railway injects PORT and routes to it; the container MUST listen there.
+    # Substituted at container start by the nginx image's envsubst entrypoint,
+    # with a local default of 8080 for docker-compose.
+    listen       ${PORT};
+    server_name  _;
+
+
+    # Re-resolve the upstream on every request instead of once at startup.
+    #
+    # `valid=10s` caps how long a resolved address is trusted. Railway hands the
+    # API a new private IP on each deploy, and without this nginx would keep the
+    # first one until the container restarted — which is why the frontends went
+    # dark after every API deploy until they were redeployed too.
+    #
+    # The resolver address is discovered per environment by
+    # docker-entrypoint.d/15-resolver.envsh; hard-coding Docker's 127.0.0.11
+    # here is what made an earlier attempt unportable.
+    resolver ${NGINX_RESOLVER} valid=10s;
+    resolver_timeout 5s;
+
+    root  /usr/share/nginx/html;
+    index index.html;
+
+    # Do not advertise the nginx version.
+    server_tokens off;
+
+    # Baseline security headers.
+    add_header X-Content-Type-Options "nosniff"        always;
+    add_header X-Frame-Options        "SAMEORIGIN"     always;
+    add_header Referrer-Policy        "strict-origin-when-cross-origin" always;
+
+    # The admin console must never be indexed. This is obscurity, NOT access
+    # control — the real gate is require_role(Role.ADMIN) on /api/v1/admin/*
+    # in the backend. See docs/INTEGRATION_PLAN.md section 2.
+    add_header X-Robots-Tag           "noindex, nofollow, noarchive" always;
+
+    gzip              on;
+    gzip_vary         on;
+    gzip_min_length   1024;
+    gzip_proxied      any;
+    gzip_types        text/plain text/css application/javascript application/json
+                      image/svg+xml application/xml font/woff font/woff2;
+
+    # ── API reverse proxy ────────────────────────────────────
+    location /api/ {
+        # ${API_UPSTREAM} is substituted at CONTAINER START by the nginx
+        # image's envsubst entrypoint, so this line becomes a literal host:port
+        # before nginx ever parses it. Points at wherever cabmora-api lives:
+        # a compose service name locally, api.railway.internal on Railway.
+        #
+        # Resolved per request via the `resolver` above — see 15-resolver.envsh
+        # for how its address is discovered.
+        # A variable, not a literal: nginx only defers DNS to request time when
+        # the upstream is a variable. `$request_uri` is appended explicitly
+        # because a variable proxy_pass does not rewrite the path the way a
+        # literal one does — without it every request would hit /.
+        set $cabmora_api ${API_UPSTREAM};
+        proxy_pass         http://$cabmora_api$request_uri;
+        proxy_http_version 1.1;
+
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        # Media uploads land here in Phase 3 — do not cap at nginx's 1m default.
+        client_max_body_size 512m;
+
+        proxy_connect_timeout 30s;
+        proxy_send_timeout    300s;
+        proxy_read_timeout    300s;
+    }
+
+    # ── Static assets ────────────────────────────────────────
+    # Vite emits content-hashed filenames, so these are safe to cache forever.
+    location /assets/ {
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+        access_log off;
+        try_files $uri =404;
+    }
+
+    # ── SPA fallback ─────────────────────────────────────────
+    # index.html must NEVER be cached, or clients pin to a stale asset manifest
+    # after a deploy and the app white-screens.
+    location / {
+        try_files $uri $uri/ /index.html;
+        add_header Cache-Control "no-cache, no-store, must-revalidate" always;
+    }
+
+    # Container-level liveness probe. Distinct from the API's /api/v1/health.
+    location = /healthz {
+        access_log off;
+        add_header Content-Type text/plain;
+        return 200 "ok\n";
+    }
+}

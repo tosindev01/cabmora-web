@@ -1,0 +1,239 @@
+/* ─────────────────────────────────────────────
+   Cabmora design system
+   Fonts + Tailwind v4 + semantic design tokens.
+   Palette extracted from the marketing design and
+   given semantic names so components never hardcode hex.
+───────────────────────────────────────────── */
+@import url('https://fonts.googleapis.com/css2?family=Jost:ital,wght@0,100..900;1,100..900&family=Playfair+Display:ital,wght@0,400..900;1,400..900&display=swap');
+@import 'tailwindcss';
+
+/* Tailwind v4 auto-detects source files from the *app's* Vite root, so
+   apps/web and apps/admin scan only their own `src/`. packages/ui sits
+   outside both, which means any utility used ONLY here is silently never
+   generated — no error, no warning, the class just does nothing. That is how
+   `py-[15px]` and `py-[17px]` went missing and left every CTA with zero
+   vertical padding, while `px-8` survived purely because an app file happened
+   to use it too. Registering the package explicitly fixes it for every app
+   that imports this stylesheet. */
+@source "./**/*.{ts,tsx}";
+
+@theme {
+  /* Typefaces */
+  --font-sans: 'Jost', ui-sans-serif, system-ui, sans-serif;
+  --font-serif: 'Playfair Display', ui-serif, Georgia, serif;
+
+  /* Core palette */
+  --color-canvas: #faf9f6; /* page background — warm off-white */
+  --color-ink: #111111; /* primary text on light surfaces */
+  --color-noir: #0e0c0a; /* darkest hero / section background */
+  --color-noir-deep: #0a0908; /* footer / creator section */
+  --color-gold: #c9a86a; /* brand accent */
+  --color-gold-dark: #b8965c; /* accent hover */
+  --color-sand: #f5f3ee; /* warm alternate section background */
+  --color-stone: #e8e4dc; /* image placeholder / muted surface */
+
+  /* Portal chrome */
+  --color-forest: #001f1f; /* creator-portal sidebar — deep teal (light variant) */
+  --color-forest-light: #003b3b; /* forest hover/active */
+  --color-forest-dark: #001717; /* forest pressed — admin sidebar */
+  --color-mist: #eaeaea; /* neutral hairline on white — cooler than `stone` */
+
+  /* Slate — services section */
+  --color-slate: #2c3e50;
+  --color-slate-deep: #1e2b3c;
+  --color-slate-hover: #243447;
+
+  /* Panels — dashboards, portal mockups, dark cards */
+  --color-panel: #181614;
+  --color-panel-800: #1a1816;
+  --color-panel-900: #141210;
+  --color-panel-950: #0f0d0c;
+
+  /* Cabmora Flow — the creator product.
+     A cooler, bluer dark than the studio site's warm `noir`, which is how the
+     designer separated the two ecosystems at a glance. Kept as its own ramp
+     rather than folded into `panel-*`: those are warm greys and mixing them
+     would muddy both.
+
+     The designer's export carried 41 distinct hex values across these
+     screens; 18 of them were within 6/255 of another — drift rather than
+     intent — so they collapse onto the nearest step here. */
+  --color-flow-950: #080b0c; /* near-black — page ground */
+  --color-flow-900: #0a0e14; /* deepest navy — the dominant surface */
+  --color-flow-850: #0e141e;
+  --color-flow-800: #111827; /* raised cards */
+  --color-flow-700: #1a2332;
+  --color-flow-600: #253245;
+  --color-flow-500: #3a4454; /* hairlines on dark */
+  --color-flow-400: #485365;
+  --color-flow-300: #62738b; /* muted body text on dark */
+
+  /* The saturated blues, used for gradients and lit edges rather than fills. */
+  --color-flow-navy: #0e2034;
+  --color-flow-navy-light: #16273c;
+  --color-flow-navy-deep: #122a44;
+  --color-flow-edge: #1d2b3d;
+  --color-flow-sky: #8eb8e6; /* the one light accent — links and highlights */
+
+  /* Warm tints that sit against the navy. `gold` and `gold-dark` already
+     cover the brand accent; these are the two extremes it needs beside it. */
+  --color-gold-deep: #8b6520; /* bronze — pressed states, deep gradient stop */
+  --color-gold-tint: #eadbbd; /* pale gold on dark */
+  --color-parchment: #f5eedc; /* warmest light surface */
+
+  /* Feedback. Tuned for legibility on the dark auth/portal surfaces, which is
+     where the only current consumer (the sign-in error banner) lives. */
+  --color-danger: #e06c5d;
+}
+
+/* Global base */
+html,
+body {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  background: var(--color-canvas);
+  color: var(--color-ink);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Submit buttons read as not-yet-actionable while their form is incomplete.
+   `form:invalid` matches whenever any control inside fails validation, so this
+   needs no state and no controlled inputs.
+
+   Opacity rather than [disabled] on purpose: a disabled button swallows the
+   click, so the browser never shows its "fill in this field" hint pointing at
+   what is actually missing. Dimmed-but-clickable keeps that feedback.
+
+   Hand-written rather than a `group-invalid/form:` utility — Tailwind v4 does
+   not emit that variant here, and per the source-scanning note above an
+   ungenerated class fails silently. */
+form:invalid .dim-until-valid {
+  opacity: 0.5;
+}
+form:invalid .dim-until-valid:hover {
+  background-color: var(--color-gold);
+}
+
+/* Vertical writing utility used by the hero scroll cue */
+.writing-vertical {
+  writing-mode: vertical-rl;
+  letter-spacing: 0.32em;
+}
+
+/* Dialog entrance. Hand-rolled rather than pulling in tailwindcss-animate for
+   two keyframes — and defined here so the utilities exist without a plugin,
+   which `data-[state=open]:animate-in` silently did not. */
+@keyframes cab-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes cab-pop-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -48%) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+.cab-fade-in {
+  animation: cab-fade-in 150ms ease-out;
+}
+.cab-pop-in {
+  animation: cab-pop-in 180ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes cab-slide-in {
+  from {
+    opacity: 0;
+    transform: translateX(2rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.cab-slide-in {
+  animation: cab-slide-in 220ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* The swipe coach mark: a finger travelling the way the gesture goes, then
+   lifting. Loops a few times and the hint removes itself — a demonstration
+   that never stops is an obstruction. */
+@keyframes cab-swipe {
+  0% {
+    transform: translateX(26px);
+    opacity: 0;
+  }
+  18% {
+    opacity: 1;
+  }
+  72% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(-26px);
+    opacity: 0;
+  }
+}
+.cab-swipe {
+  animation: cab-swipe 1700ms ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cab-fade-in,
+  .cab-pop-in,
+  .cab-slide-in,
+  .cab-swipe {
+    animation: none;
+  }
+}
+
+/* Unified Dashboard Dark Mode — uses the signature Forest palette */
+.portal-theme-scope[data-portal-theme='dark'] .bg-white,
+.portal-theme-scope[data-portal-theme='dark'] .bg-panel-900 {
+  background-color: var(--color-forest);
+}
+.portal-theme-scope[data-portal-theme='dark'] .bg-sand,
+.portal-theme-scope[data-portal-theme='dark'] .bg-panel-800 {
+  background-color: var(--color-forest-light);
+}
+.portal-theme-scope[data-portal-theme='dark'] .bg-canvas,
+.portal-theme-scope[data-portal-theme='dark'] .bg-panel-950 {
+  background-color: var(--color-forest-dark);
+}
+.portal-theme-scope[data-portal-theme='dark'] .text-ink {
+  color: var(--color-canvas);
+}
+.portal-theme-scope[data-portal-theme='dark'] .text-ink\/80 {
+  color: rgba(250, 249, 246, 0.8);
+}
+.portal-theme-scope[data-portal-theme='dark'] .text-ink\/70 {
+  color: rgba(250, 249, 246, 0.7);
+}
+.portal-theme-scope[data-portal-theme='dark'] .text-ink\/60 {
+  color: rgba(250, 249, 246, 0.6);
+}
+.portal-theme-scope[data-portal-theme='dark'] .text-ink\/50 {
+  color: rgba(250, 249, 246, 0.5);
+}
+.portal-theme-scope[data-portal-theme='dark'] .text-ink\/40 {
+  color: rgba(250, 249, 246, 0.45);
+}
+.portal-theme-scope[data-portal-theme='dark'] .border-ink\/5,
+.portal-theme-scope[data-portal-theme='dark'] .border-ink\/10,
+.portal-theme-scope[data-portal-theme='dark'] .border-ink\/15 {
+  border-color: rgba(250, 249, 246, 0.12);
+}

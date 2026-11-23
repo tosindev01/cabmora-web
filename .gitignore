@@ -1,0 +1,29 @@
+# Node
+node_modules/
+dist/
+.vite/
+*.local
+*.tsbuildinfo
+
+# Secrets
+.env
+.env.*
+!.env.example
+
+# Staged deletions — see SPLIT_INSTRUCTIONS.md, review then `rm -rf .trash`
+.trash/
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+
+# Local dev-server config for the Claude Code browser preview. Machine-specific
+# (localhost ports), useful to nobody else.
+.claude/
+
+# Source photography: 156 MB of full-resolution originals. Kept in the repo
+# folder for convenience, out of git history because photographs never
+# delta-compress and git would hold them forever. See the README in there.
+design-source/photography/*
+!design-source/photography/README.md

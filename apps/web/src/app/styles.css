@@ -1,0 +1,67 @@
+/* ─────────────────────────────────────────────────────────────
+   apps/web — app-level utilities.
+
+   This file previously carried the original scaffold's stylesheet: a global
+   `body` rule that overrode the Jost font and canvas background, and a
+   `main { max-width: 960px; padding: 2rem 1.5rem }` rule that silently
+   clamped every portal page — all ten use `<main className="flex-1 p-6
+   lg:p-10">` — to 960px with the wrong padding. That is what made the ported
+   designs look cramped and off-spec.
+
+   Global element selectors do not belong here. Base typography and colour
+   live in packages/ui/theme.css; everything else is a Tailwind utility on the
+   element. Only add rules here that genuinely cannot be expressed as
+   utilities.
+───────────────────────────────────────────────────────────── */
+
+/* In-page anchor navigation (#work, #packages, #services…) used by the nav and
+   the hero / final CTAs. `scroll-margin-top` keeps the landing section's
+   heading clear of the fixed header instead of hiding under it. */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Matches the fixed header's h-[100px]. */
+section[id] {
+  scroll-margin-top: 100px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+}
+
+/* Hide scrollbars on scroll containers that have their own visual affordance
+   — carried over from the designer's stylesheet, which the portal sidebars
+   and media grids depend on. */
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+aside,
+aside * {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+aside::-webkit-scrollbar,
+aside *::-webkit-scrollbar {
+  display: none;
+}
+
+/* Form feedback used by the enquiry form. */
+.form-error {
+  color: #b91c1c;
+  font-size: 0.9rem;
+}
+
+.form-success {
+  color: #15803d;
+  font-size: 0.95rem;
+}

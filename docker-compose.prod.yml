@@ -1,0 +1,47 @@
+# Cabmora Web — production-shaped stack (frontends only)
+#
+#   cp .env.example .env      # then set API_UPSTREAM
+#   docker compose -f docker-compose.prod.yml up --build -d
+#
+#   web   → http://localhost:8080   nginx serving the built SPA
+#   admin → http://localhost:8081   nginx serving the built admin SPA
+#
+# Both images proxy /api to API_UPSTREAM, which is substituted into the nginx
+# config at CONTAINER START, not at build time. One image therefore runs
+# unchanged against staging and production — only the env var differs.
+#
+# Build contexts are the REPO ROOT (".") with an explicit `dockerfile:` path:
+# the apps import workspace packages from packages/, which a context scoped to
+# apps/web could not see.
+#
+# Run this locally before deploying — it catches production-only breakage
+# (SPA fallback, asset caching, proxy wiring) the dev stack cannot.
+
+name: cabmora-web-prod
+
+services:
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    image: cabmora/web:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    environment:
+      # host:port of the cabmora-api deployment. No scheme, no trailing slash.
+      API_UPSTREAM: ${API_UPSTREAM:?set API_UPSTREAM in .env}
+    ports:
+      - "${WEB_PORT:-8080}:8080"
+
+  admin:
+    build:
+      context: .
+      dockerfile: apps/admin/Dockerfile
+    image: cabmora/admin:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    environment:
+      API_UPSTREAM: ${API_UPSTREAM:?set API_UPSTREAM in .env}
+    ports:
+      # Bind to loopback only. The admin console should reach the internet via
+      # an edge proxy with Cloudflare Access / an IP allowlist in front of it,
+      # never by being published directly. See docs/DEPLOYMENT.md.
+      - "127.0.0.1:${ADMIN_PORT:-8081}:8080"

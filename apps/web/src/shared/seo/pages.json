@@ -1,0 +1,82 @@
+{
+  "site": {
+    "name": "Cabmora Media",
+    "origin": "https://cabmoramedia.com",
+    "locale": "en_GB",
+    "twitter": "@cabmoramedia"
+  },
+  "pages": [
+    {
+      "path": "/",
+      "title": "Cabmora Media — Wedding & Event Photography and Videography",
+      "description": "International wedding filmmakers, photographers and creative storytellers. Weddings, events, corporate content, product films and podcasts, from the UK and worldwide.",
+      "priority": "1.0"
+    },
+    {
+      "path": "/about",
+      "title": "About Cabmora Media — Who We Are",
+      "description": "An international creative media company specialising in wedding and event filmmaking, photography, corporate content, documentaries and digital media production.",
+      "priority": "0.8"
+    },
+    {
+      "path": "/work",
+      "title": "Our Work — Cabmora Media Portfolio",
+      "description": "Weddings, graduations, portraits, events and corporate photography shot by Cabmora Media.",
+      "priority": "0.9"
+    },
+    {
+      "path": "/blog",
+      "title": "Journal — Stories & Insights | Cabmora Media",
+      "description": "Behind the lens with Cabmora Media: how we work, how to prepare for your shoot, and why professional photography matters for your brand.",
+      "priority": "0.7"
+    },
+    {
+      "path": "/contact",
+      "title": "Contact Cabmora Media — Book a Consultation",
+      "description": "Tell us about your wedding, celebration, corporate event or brand shoot and we will come back to you.",
+      "priority": "0.8"
+    },
+    {
+      "path": "/help",
+      "title": "Help Centre — Cabmora Media",
+      "description": "Guides and answers for Cabmora Media clients and partner creators.",
+      "priority": "0.4"
+    },
+    {
+      "path": "/flow",
+      "title": "Cabmora Flow — Run Your Creative Business in One Place",
+      "description": "Invoicing, payments, client management, secure media delivery and white-labelled galleries for photographers and filmmakers.",
+      "priority": "0.7"
+    },
+    {
+      "path": "/privacy",
+      "title": "Privacy Policy — Cabmora Media",
+      "description": "How Cabmora Media collects, uses and protects your personal data.",
+      "priority": "0.2"
+    },
+    {
+      "path": "/terms",
+      "title": "Terms of Service — Cabmora Media",
+      "description": "The terms on which Cabmora Media provides its services.",
+      "priority": "0.2"
+    }
+  ],
+  "private": [
+    "/login",
+    "/signup",
+    "/dashboard",
+    "/projects",
+    "/galleries",
+    "/upload",
+    "/storage",
+    "/billing",
+    "/messages",
+    "/settings",
+    "/profile",
+    "/client",
+    "/s",
+    "/accept-invite",
+    "/reset-password",
+    "/split"
+  ]
+}

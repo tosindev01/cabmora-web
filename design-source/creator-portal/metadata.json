@@ -1,0 +1,8 @@
+{
+  "name": "Remix: Cabmora Media 002",
+  "description": "A faithful replication of a provided website, preserving all original colors, logos, images, and animations.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

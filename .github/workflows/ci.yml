@@ -1,0 +1,79 @@
+# Cabmora Web — continuous integration
+#
+# This workflow does NOT deploy. Railway watches the repo and deploys on its
+# own; duplicating that here would mean two systems racing to ship the same
+# commit. CI's job is to decide whether a commit is fit to deploy.
+#
+# Branch protection on `main` and `staging` should require the `build` job, so
+# a red build blocks the merge rather than reaching Railway at all.
+
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main, staging]
+
+# A newer push to the same branch cancels the older run — no point finishing CI
+# for a commit nobody will merge.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      # `ci` not `install`: fails if package-lock.json is out of sync with
+      # package.json, instead of silently resolving something new.
+      - name: Install
+        run: npm ci
+
+      - name: Typecheck web
+        run: npm run lint --workspace @cabmora/web
+
+      # Blocking as of the clean-code pass: the backlog was one real bug
+      # (AdminLayout read `review.customerName`, a field CustomerReview never
+      # had). apps/admin's build script now runs tsc too, so this gate and the
+      # build agree.
+      - name: Typecheck admin
+        run: npm run typecheck --workspace @cabmora/admin
+
+      - name: Build web
+        run: npm run build --workspace @cabmora/web
+
+      - name: Build admin
+        run: npm run build --workspace @cabmora/admin
+
+  # Catches Dockerfile breakage before Railway does. Build only — nothing is
+  # pushed to a registry, since Railway builds its own images from source.
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build web image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/web/Dockerfile
+          push: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build admin image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/admin/Dockerfile
+          push: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

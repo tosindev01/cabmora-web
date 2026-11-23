@@ -1,0 +1,33 @@
+#!/bin/sh
+# Discover the container's DNS resolver and expose it to the config template.
+#
+# Why this exists: nginx resolves a literal hostname in `proxy_pass` ONCE, when
+# it parses the config, and caches the address for the life of the process.
+# Railway gives a service a new private IP on every deploy, so after the API
+# redeploys the frontends keep dialling an address that no longer answers —
+# every request hangs, and only redeploying the frontends fixes it. That
+# happened three times before this file existed.
+#
+# The fix is a `resolver` directive plus a variable in `proxy_pass`, which makes
+# nginx re-resolve at request time. A resolver needs a literal IP, and the right
+# one differs per environment — 127.0.0.11 under Docker Compose, something else
+# on Railway — so it is read from the container rather than hard-coded, which is
+# what made this "unportable" the first time round.
+#
+# Sourced, not executed: the nginx entrypoint runs `.envsh` files with `.` so
+# their exports reach the envsubst step that follows. A plain `.sh` would run in
+# a subshell and export nothing.
+
+NGINX_RESOLVER="$(awk '/^nameserver/ { print $2; exit }' /etc/resolv.conf 2>/dev/null)"
+
+# Docker Compose's embedded DNS, for local runs where resolv.conf is unreadable.
+[ -n "$NGINX_RESOLVER" ] || NGINX_RESOLVER="127.0.0.11"
+
+# nginx wants an IPv6 resolver in brackets. Railway's private network is
+# IPv6-only, so this is the normal case there, not an edge case.
+case "$NGINX_RESOLVER" in
+  *:*) NGINX_RESOLVER="[$NGINX_RESOLVER]" ;;
+esac
+
+export NGINX_RESOLVER
+echo "cabmora: nginx resolver set to $NGINX_RESOLVER"

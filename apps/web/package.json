@@ -1,0 +1,33 @@
+{
+  "name": "@cabmora/web",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Cabmora public site \u2014 marketing, auth, customer & creator portals",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build && node scripts/seo.mjs",
+    "preview": "vite preview",
+    "lint": "tsc --noEmit",
+    "seo": "node scripts/seo.mjs"
+  },
+  "dependencies": {
+    "@cabmora/api-client": "*",
+    "@cabmora/ui": "*",
+    "lucide-react": "^0.546.0",
+    "motion": "^12.23.24",
+    "react": "^19.0.1",
+    "react-dom": "^19.0.1",
+    "react-router-dom": "^7.18.1"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.1.14",
+    "@types/node": "^22.14.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@vitejs/plugin-react": "^5.0.4",
+    "tailwindcss": "^4.1.14",
+    "typescript": "~5.8.2",
+    "vite": "^6.2.3"
+  }
+}

@@ -1,0 +1,17 @@
+# Build context is the repo root — keep it small and secret-free.
+**/node_modules
+**/dist
+**/.vite
+.git
+.trash
+design-source
+cabmora-api
+docs
+*.docx
+*.tar.gz
+**/.env
+**/.env.*
+!**/.env.example
+**/.DS_Store
+**/.vscode
+**/.idea

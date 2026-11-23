@@ -1,0 +1,41 @@
+{
+  "posts": [
+    {
+      "id": "a-day-in-the-life",
+      "tag": "Behind the Lens",
+      "published": "2026-06-05",
+      "title": "A day in the life of a Cabmora photographer",
+      "img": "https://images.unsplash.com/photo-1764255510960-deee566a91f0?w=700&h=500&fit=crop&auto=format",
+      "alt": "People dining under warm lights at an elegant event",
+      "body": [
+        "Every shoot starts before the camera comes out. From preparing equipment and understanding the brief to finding the right moments throughout the day, our photographers focus on capturing images that feel natural, meaningful and true to the occasion.",
+        "At Cabmora Media, we pay attention to the small details, genuine emotions and unexpected moments that can turn an ordinary photograph into a lasting memory.",
+        "From weddings and celebrations to corporate events and brand shoots, every day brings a different story, and we are there to capture it."
+      ]
+    },
+    {
+      "id": "preparing-for-your-wedding-session",
+      "tag": "Wedding Guide",
+      "published": "2026-06-12",
+      "title": "How to prepare for your wedding photography session",
+      "img": "https://images.unsplash.com/photo-1770301312795-abdc6deee5a8?w=700&h=500&fit=crop&auto=format",
+      "alt": "Bride and groom holding hands at dusk",
+      "body": [
+        "Your wedding day goes by quickly, so a little preparation can make a big difference. From planning your key moments and preparing your details to allowing enough time for couple and family portraits, good preparation helps us capture your day naturally without interrupting the celebration.",
+        "We’ll work with you before and during the wedding to understand your plans, important moments and what matters most to you, so you can relax and enjoy your day while we focus on telling your story."
+      ]
+    },
+    {
+      "id": "why-event-photography-matters",
+      "tag": "Corporate",
+      "published": "2026-07-08",
+      "title": "Why professional event photography matters for your brand",
+      "img": "https://images.unsplash.com/photo-1653821355736-0c2598d0a63e?w=700&h=500&fit=crop&auto=format",
+      "alt": "Candlelit luxury dinner table arrangement",
+      "body": [
+        "Your event represents your brand, and the images captured can continue to tell that story long after the event is over. Professional photography helps showcase your people, atmosphere, products and key moments in a way that feels polished and authentic.",
+        "At Cabmora Media, we capture the details and moments that help you create valuable content for your website, social media, marketing campaigns and future promotions, giving your brand a strong visual presence that lasts beyond the event."
+      ]
+    }
+  ]
+}

@@ -1,0 +1,26 @@
+{
+  "name": "cabmora",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Cabmora platform \u2014 monorepo (public web + admin console + FastAPI backend)",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:web": "npm run dev --workspace @cabmora/web",
+    "dev:admin": "npm run dev --workspace @cabmora/admin",
+    "build": "npm run build --workspaces --if-present",
+    "build:web": "npm run build --workspace @cabmora/web",
+    "build:admin": "npm run build --workspace @cabmora/admin",
+    "lint": "npm run lint --workspaces --if-present",
+    "format": "prettier --write \"{apps,packages}/**/*.{ts,tsx,css}\"",
+    "format:check": "prettier --check \"{apps,packages}/**/*.{ts,tsx,css}\""
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "devDependencies": {
+    "prettier": "^3.9.6"
+  }
+}
