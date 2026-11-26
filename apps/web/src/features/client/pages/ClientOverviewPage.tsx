@@ -7,9 +7,11 @@ import { nameCase, sentenceCase } from '@cabmora/ui';
 
 import { ClientPortalShell } from '@/features/client/components/ClientPortalShell';
 import { ClientProjectCard } from '@/features/client/components/ClientProjectCard';
+import { ClientAiAssistantPanel } from '@/features/client/components/ClientAiAssistantPanel';
 import { listMyProjects, type ClientProject } from '@/features/client/api';
 import { filterBySlug, matchesFilter } from '@/features/client/data';
 import { useAuth } from '@/shared/auth';
+import { ensureRichClientBriefing } from '@/shared/collaboration/studioWorkspaceStore';
 
 /**
  * Where a client lands.
@@ -87,13 +89,14 @@ export default function ClientOverviewPage() {
       {projects === null ? (
         <p className="text-ink/50 text-[14px] py-12">Loading…</p>
       ) : (
-        <>
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
+        <div className="grid grid-cols-1 xl:grid-cols-12 gap-8 items-start">
+          <div className="xl:col-span-7 space-y-8 min-w-0">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-5">
             {stats.map(({ label, value, to }) => (
               <Link
                 key={label}
                 to={to}
-                className="group border border-ink/10 bg-white rounded-xl p-5 block transition-colors hover:border-gold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
+                className="group border border-ink/10 bg-white rounded-xl p-5 block transition-all hover:border-gold hover:-translate-y-0.5 hover:shadow-md cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
               >
                 <p className="text-[10px] tracking-[0.22em] uppercase text-ink/45 font-medium mb-2 group-hover:text-ink/70 transition-colors">
                   {label}
@@ -237,14 +240,19 @@ export default function ClientOverviewPage() {
                 </p>
               </div>
             ) : (
-              <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                 {all.slice(0, 4).map((project) => (
                   <ClientProjectCard key={project.id} project={project} />
                 ))}
               </div>
             )}
           </section>
-        </>
+          </div>
+
+          <div className="xl:col-span-5">
+            <ClientAiAssistantPanel briefing={ensureRichClientBriefing(null, user?.first_name)} />
+          </div>
+        </div>
       )}
     </ClientPortalShell>
   );

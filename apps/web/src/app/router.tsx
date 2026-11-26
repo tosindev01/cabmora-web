@@ -32,6 +32,9 @@ import DashboardPage from '@/features/projects/pages/DashboardPage';
 import ProjectsPage from '@/features/projects/pages/ProjectsPage';
 import ProjectDetailsPage from '@/features/projects/pages/ProjectDetailsPage';
 import CabmoraAiPage from '@/features/projects/pages/CabmoraAiPage';
+import CreatorReferralsPage from '@/features/projects/pages/CreatorReferralsPage';
+import CommunityPage from '@/features/projects/pages/CommunityPage';
+import ClientBookingsPage from '@/features/projects/pages/ClientBookingsPage';
 
 import GalleriesPage from '@/features/media/pages/GalleriesPage';
 import MediaUploadPage from '@/features/media/pages/MediaUploadPage';
@@ -140,7 +143,10 @@ export default function AppRouter() {
           <Route path="/dashboard" element={<DashboardPage />} />
           <Route path="/projects" element={<ProjectsPage />} />
           <Route path="/projects/:id" element={<ProjectDetailsPage />} />
+          <Route path="/bookings" element={<ClientBookingsPage />} />
+          <Route path="/community" element={<CommunityPage />} />
           <Route path="/ai" element={<CabmoraAiPage />} />
+          <Route path="/referrals" element={<CreatorReferralsPage />} />
           <Route path="/galleries" element={<GalleriesPage />} />
           <Route path="/upload" element={<MediaUploadPage />} />
           <Route path="/storage" element={<StoragePage />} />
@@ -161,6 +167,7 @@ export default function AppRouter() {
           <Route path="/client/dashboard" element={<ClientOverviewPage />} />
           <Route path="/client/projects" element={<ClientProjectsPage />} />
           <Route path="/client/projects/:id" element={<ClientPortalPage />} />
+          <Route path="/client/community" element={<CommunityPage />} />
           <Route path="/client/media" element={<ClientMediaPage />} />
           <Route path="/client/messages" element={<ClientMessagesPage />} />
           <Route path="/client/billing" element={<ClientBillingPage />} />

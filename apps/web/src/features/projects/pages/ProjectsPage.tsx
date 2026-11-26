@@ -21,6 +21,11 @@ import {
   Download,
   Sliders,
   Check,
+  Clock,
+  AlertTriangle,
+  Navigation,
+  Sparkles,
+  CloudSun,
 } from 'lucide-react';
 import { PortalAvatar, PortalBell, PortalShell, PortalTopbar } from '@/shared/portal';
 import { Modal } from '@cabmora/ui';
@@ -31,10 +36,39 @@ import {
   ProjectPermissions,
   STAGES,
 } from '@/features/projects/data';
+import {
+  PROJECT_WEATHER_FORECASTS,
+  formatLiveCountdown,
+  getProjectLogisticsMeta,
+  shareCompletedProjectToCommunity,
+} from '@/shared/collaboration/studioWorkspaceStore';
 
 export default function ProjectsPage() {
   const navigate = useNavigate();
-  const [projects, setProjects] = useState<Project[]>(INITIAL_PROJECTS);
+  const [projects, setProjects] = useState<Project[]>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const raw = window.localStorage.getItem('cabmora_studio_projects_v1');
+        if (raw) {
+          const parsed = JSON.parse(raw) as Project[];
+          if (parsed.length > 0) return parsed;
+        }
+      } catch {
+        // ignore
+      }
+    }
+    return INITIAL_PROJECTS;
+  });
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        window.localStorage.setItem('cabmora_studio_projects_v1', JSON.stringify(projects));
+      } catch {
+        // ignore
+      }
+    }
+  }, [projects]);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState('All');
   const [viewMode, setViewMode] = useState<'kanban' | 'list'>('kanban');
@@ -90,10 +124,46 @@ export default function ProjectsPage() {
   const [newProjectType, setNewProjectType] = useState<Project['type']>('Wedding');
   const [newPartnerType, setNewPartnerType] = useState<Project['partnerType']>('Hybrid');
   const [newLocation, setNewLocation] = useState('');
+  const [tick, setTick] = useState(0);
+  const [activeTopProjectIdx, setActiveTopProjectIdx] = useState(0);
 
   useEffect(() => {
     window.scrollTo(0, 0);
+    const timer = window.setInterval(() => setTick((t) => t + 1), 1000);
+    return () => window.clearInterval(timer);
   }, []);
+
+  const handleShareCompletedToCommunity = (proj: Project) => {
+    if (proj.status !== 'Completed') {
+      setPermissionsToast(
+        'Only Completed projects can be shared to the Creator Community. Mark project as Completed first!',
+      );
+      setTimeout(() => setPermissionsToast(null), 3500);
+      return;
+    }
+    shareCompletedProjectToCommunity({
+      projectId: String(proj.id),
+      projectTitle: proj.name,
+      projectType: proj.type,
+      clientName: proj.clientName,
+      location: proj.location,
+      deliverablesSummary: proj.deliverables,
+      caption: `Completed and delivered "${proj.name}" in ${proj.location} (${proj.deliverables}). Open to new creator & client collaborations!`,
+      mediaUrls: [proj.image],
+    });
+    setPermissionsToast(`Shared completed job "${proj.name}" to the Creator Community!`);
+    setTimeout(() => setPermissionsToast(null), 4000);
+  };
+
+  const featuredTopProject = projects[activeTopProjectIdx] ?? projects[0]!;
+  const featuredLogistics = getProjectLogisticsMeta(
+    featuredTopProject.id,
+    featuredTopProject.status,
+  );
+  const featuredCountdown = formatLiveCountdown(featuredLogistics.targetOffsetHours, tick);
+  const featuredWeather =
+    PROJECT_WEATHER_FORECASTS.find((w) => w.projectId === String(featuredTopProject.id)) ??
+    PROJECT_WEATHER_FORECASTS[0]!;
 
   // Close popup menus on outside click
   useEffect(() => {
@@ -252,6 +322,32 @@ export default function ProjectsPage() {
       {({ toggleSidebar }) => (
         <>
           <PortalTopbar title="Project Management Workspace" onToggleSidebar={toggleSidebar}>
+            <div className="hidden xl:flex items-center gap-2.5 px-3.5 py-1.5 rounded-full bg-canvas border border-ink/10 text-[11.5px] text-ink/75 whitespace-nowrap">
+              <span className="flex items-center gap-1 font-medium text-ink">
+                <Clock size={13} className="text-gold" />
+                <span className="font-mono font-semibold">
+                  {featuredCountdown.days}d {featuredCountdown.hours}h {featuredCountdown.mins}m
+                </span>
+              </span>
+              <span className="text-ink/20">•</span>
+              <span className="flex items-center gap-1 font-medium text-ink">
+                <CloudSun size={13} className="text-gold" />
+                <span>
+                  {featuredWeather.tempC}°C {featuredWeather.condition.split(' ')[0]}
+                </span>
+              </span>
+              <span className="text-ink/20">•</span>
+              <span className="flex items-center gap-1">
+                <Navigation size={12} className="text-gold" />
+                {featuredLogistics.venueDistanceKm} km to venue
+              </span>
+              <span className="text-ink/20">•</span>
+              <span className="flex items-center gap-1 text-amber-800 font-medium">
+                <AlertTriangle size={12} className="text-gold" />
+                Due {featuredTopProject.deadline}
+              </span>
+            </div>
+
             <PortalBell />
 
             <PortalAvatar src="https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&h=150&fit=crop" />
@@ -475,8 +571,13 @@ export default function ProjectsPage() {
                                 </div>
 
                                 <div
-                                  onClick={() => navigate(`/projects/${proj.id}`)}
-                                  className="cursor-pointer"
+                                  onClick={() => {
+                                    setActiveTopProjectIdx(
+                                      projects.findIndex((x) => x.id === proj.id),
+                                    );
+                                    navigate(`/projects/${proj.id}`);
+                                  }}
+                                  className="cursor-pointer space-y-1"
                                 >
                                   <h4 className="font-serif text-[15px] group-hover:text-gold transition-colors line-clamp-1">
                                     {proj.name}
@@ -484,7 +585,22 @@ export default function ProjectsPage() {
                                   <p className="text-[11px] text-ink/50 truncate">
                                     Client: {proj.clientName}
                                   </p>
+                                  <div className="text-[10px] text-ink/50 flex items-center justify-between pt-0.5">
+                                    <span>{getProjectLogisticsMeta(proj.id, proj.status).venueDistanceKm} km to venue</span>
+                                    <span>Due {proj.deadline}</span>
+                                  </div>
                                 </div>
+
+                                {proj.status === 'Completed' && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleShareCompletedToCommunity(proj)}
+                                    className="w-full py-1.5 px-2.5 rounded-lg bg-canvas hover:bg-gold text-ink text-[10.5px] font-medium border border-ink/10 flex items-center justify-center gap-1 transition-colors cursor-pointer"
+                                  >
+                                    <Sparkles size={11} className="text-gold" />
+                                    <span>Share to Community</span>
+                                  </button>
+                                )}
 
                                 <div className="space-y-1">
                                   <div className="flex justify-between text-[10px] text-ink/50">

@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { CreditCard as CardIcon } from 'lucide-react';
+import { CreditCard as CardIcon, Sparkles } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 import { PortalBell, PortalShell, PortalTopbar } from '@/shared/portal';
@@ -7,6 +7,10 @@ import { ReportIssueButton } from '@/shared/account';
 import { CLIENT_NAV, CLIENT_NAV_FOOTER, CLIENT_NAV_SECONDARY } from '@/shared/portal/data';
 import { useAuth } from '@/shared/auth';
 import { formatMinor } from '@cabmora/ui';
+import { collaborationApi, type ClientBriefingDto } from '@cabmora/api-client';
+import { ClientScreenSecurityShield } from '@/shared/collaboration/ClientScreenSecurityShield';
+import { ensureRichClientBriefing } from '@/shared/collaboration/studioWorkspaceStore';
+import { ClientWelcomeModal } from '@/features/client/components/ClientWelcomeModal';
 
 import { getMyBillingSummary, type BillingSummary } from '@/features/client/api';
 
@@ -40,6 +44,36 @@ export function ClientPortalShell({ title, subtitle, children }: Props) {
   // Fetched here because the figure belongs to the chrome, not to any one
   // screen. A failure leaves it absent rather than showing a wrong number.
   const [balance, setBalance] = useState<BillingSummary | null>(null);
+  const [clientBriefing, setClientBriefing] = useState<ClientBriefingDto>(() =>
+    ensureRichClientBriefing(null, user?.first_name),
+  );
+  const [isClientWelcomeOpen, setIsClientWelcomeOpen] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    collaborationApi
+      .getClientBriefing()
+      .then((data) => {
+        if (!active) return;
+        setClientBriefing(ensureRichClientBriefing(data, user?.first_name));
+        if (!window.sessionStorage.getItem('cabmora_client_briefing_seen_v1')) {
+          setIsClientWelcomeOpen(true);
+          window.sessionStorage.setItem('cabmora_client_briefing_seen_v1', '1');
+        }
+      })
+      .catch(() => {
+        if (!active) return;
+        setClientBriefing(ensureRichClientBriefing(null, user?.first_name));
+        if (!window.sessionStorage.getItem('cabmora_client_briefing_seen_v1')) {
+          setIsClientWelcomeOpen(true);
+          window.sessionStorage.setItem('cabmora_client_briefing_seen_v1', '1');
+        }
+      });
+    return () => {
+      active = false;
+    };
+  }, [user?.first_name]);
+
   useEffect(() => {
     if (user?.role !== 'customer') return;
     let cancelled = false;
@@ -91,6 +125,15 @@ export function ClientPortalShell({ title, subtitle, children }: Props) {
             {/* Hidden on the narrowest screens: the balance and the avatar
                 are what a cramped header must keep. It is also in Settings
                 under Help & Support, so it is never the only way through. */}
+            <button
+              type="button"
+              onClick={() => setIsClientWelcomeOpen(true)}
+              className="hidden sm:flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-gold/15 border border-gold/30 text-gold text-[12px] font-semibold hover:bg-gold/25 transition-colors cursor-pointer"
+            >
+              <Sparkles size={14} />
+              <span>AI Client Briefing</span>
+            </button>
+
             <ReportIssueButton className="hidden md:inline-flex items-center gap-2 text-[11px] tracking-[0.15em] uppercase font-medium text-ink/55 hover:text-ink transition-colors" />
 
             <PortalBell />
@@ -116,9 +159,23 @@ export function ClientPortalShell({ title, subtitle, children }: Props) {
             )}
           </PortalTopbar>
 
-          <main className="flex-1 p-6 lg:p-10 overflow-y-auto">
-            <div className="max-w-[1200px] mx-auto">{children}</div>
+          <main className="flex-1 overflow-y-auto">
+            <ClientScreenSecurityShield
+              clientLabel={
+                user?.first_name ? `${user.first_name}'s Client Account` : 'Protected Client Account'
+              }
+            >
+              <div className="p-6 lg:p-10">
+                <div className="max-w-[1200px] mx-auto">{children}</div>
+              </div>
+            </ClientScreenSecurityShield>
           </main>
+
+          <ClientWelcomeModal
+            briefing={clientBriefing}
+            open={isClientWelcomeOpen}
+            onClose={() => setIsClientWelcomeOpen(false)}
+          />
         </>
       )}
     </PortalShell>

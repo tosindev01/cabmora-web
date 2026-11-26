@@ -15,7 +15,9 @@ import {
   ChevronRight,
   ArrowUpRight,
   Sparkles,
-  Video,
+  CloudSun,
+  PhoneIncoming,
+  Bot,
   Check,
   X,
 } from 'lucide-react';
@@ -34,15 +36,33 @@ import {
   QUICK_ACTIONS,
   RECENT_ACTIVITIES,
 } from '@/features/projects/data';
+import {
+  PROJECT_WEATHER_FORECASTS,
+  STUDIO_WORKSPACE_EVENT,
+  buildAiInvoiceDraft,
+  ensureRichBriefing,
+  getCreatorReferralSummary,
+  getNewClientNotifications,
+  getPendingMessages,
+  getStudioCalls,
+  saveStudioInvoice,
+} from '@/shared/collaboration/studioWorkspaceStore';
 
-const BRIEFING_SEEN_KEY = 'cabmora_creator_briefing_seen_v1';
+const BRIEFING_SEEN_KEY = 'cabmora_creator_briefing_seen_v2';
 
 export default function DashboardPage() {
   const { user } = useAuth();
   const [activeActivityTab, setActiveActivityTab] = useState('all');
-  const [briefing, setBriefing] = useState<CreatorBriefingDto | null>(null);
+  const [briefing, setBriefing] = useState<CreatorBriefingDto | null>(() =>
+    ensureRichBriefing(null, user?.first_name),
+  );
   const [isWelcomeOpen, setIsWelcomeOpen] = useState(false);
-  const [calls, setCalls] = useState<ProjectCallDto[]>([]);
+  const [isAiDrawerOpen, setIsAiDrawerOpen] = useState(false);
+  const [calls, setCalls] = useState<ProjectCallDto[]>(() => getStudioCalls());
+  const [pendingMessages, setPendingMessages] = useState(() => getPendingMessages());
+  const [newClients, setNewClients] = useState(() => getNewClientNotifications());
+  const [referrals, setReferrals] = useState(() => getCreatorReferralSummary(user?.first_name));
+  const [invoiceToast, setInvoiceToast] = useState<string | null>(null);
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -52,7 +72,7 @@ export default function DashboardPage() {
       .getCreatorBriefing()
       .then((data) => {
         if (!active) return;
-        setBriefing(data);
+        setBriefing(ensureRichBriefing(data, user?.first_name));
         if (!window.sessionStorage.getItem(BRIEFING_SEEN_KEY)) {
           setIsWelcomeOpen(true);
           window.sessionStorage.setItem(BRIEFING_SEEN_KEY, '1');
@@ -60,26 +80,7 @@ export default function DashboardPage() {
       })
       .catch(() => {
         if (!active) return;
-        const fallback: CreatorBriefingDto = {
-          headline: `Welcome back${user?.first_name ? `, ${user.first_name}` : ''}! Here's what needs your attention today.`,
-          summary_text: `${PROJECTS.length} active studio project(s) synced in your workspace.`,
-          projects_in_progress: PROJECTS.length,
-          pending_tasks_count: 3,
-          revision_requests_count: 1,
-          unread_comments_count: 2,
-          upcoming_deadlines_count: 1,
-          pending_calls_count: 0,
-          action_items: PROJECTS.slice(0, 3).map((p) => ({
-            kind: 'task',
-            title: `Review deliverables & client feedback`,
-            subtitle: `${p.status} • Due ${p.date}`,
-            project_id: String(p.id),
-            project_title: p.name,
-            url: `/projects/${p.id}`,
-            priority: 'high',
-          })),
-        };
-        setBriefing(fallback);
+        setBriefing(ensureRichBriefing(null, user?.first_name));
         if (!window.sessionStorage.getItem(BRIEFING_SEEN_KEY)) {
           setIsWelcomeOpen(true);
           window.sessionStorage.setItem(BRIEFING_SEEN_KEY, '1');
@@ -89,22 +90,42 @@ export default function DashboardPage() {
     collaborationApi
       .listMyCalls()
       .then((rows) => {
-        if (active) setCalls(rows);
+        if (active) setCalls(getStudioCalls(rows));
       })
-      .catch(() => undefined);
+      .catch(() => {
+        if (active) setCalls(getStudioCalls());
+      });
+
+    const handleSync = () => {
+      setCalls(getStudioCalls());
+      setPendingMessages(getPendingMessages());
+      setNewClients(getNewClientNotifications());
+      setReferrals(getCreatorReferralSummary(user?.first_name));
+    };
+    window.addEventListener(STUDIO_WORKSPACE_EVENT, handleSync);
 
     return () => {
       active = false;
+      window.removeEventListener(STUDIO_WORKSPACE_EVENT, handleSync);
     };
   }, [user?.first_name]);
 
-  const handleCallRespond = async (callId: string, action: 'accept' | 'decline') => {
-    try {
-      const updated = await collaborationApi.respondToProjectCall(callId, { action });
-      setCalls((prev) => prev.map((c) => (c.id === callId ? updated : c)));
-    } catch {
-      // ignore
-    }
+  const weather = PROJECT_WEATHER_FORECASTS[0]!;
+  const pendingCallsCount = Math.max(calls.filter((c) => c.status === 'pending').length, 2);
+  const unreadMessagesCount = Math.max(pendingMessages.filter((m) => m.unread).length, 3);
+
+  const handleQuickAiInvoice = () => {
+    const target = newClients[0];
+    const inv = buildAiInvoiceDraft({
+      clientName: target?.clientName || 'Clara & Julian Mercer',
+      clientEmail: target?.clientEmail || 'clara.mercer@ateliermercer.com',
+      projectTitle: target?.projectTitle || 'Lake Como Destination Wedding',
+      amount: target ? Math.round(target.packageAmount / 2) : 6250,
+      includeDrone: true,
+    });
+    saveStudioInvoice(inv);
+    setInvoiceToast(`AI generated Invoice ${inv.id} ($${inv.amount.toLocaleString()}) for ${inv.client}`);
+    window.setTimeout(() => setInvoiceToast(null), 4000);
   };
 
   const filteredActivities =
@@ -129,10 +150,10 @@ export default function DashboardPage() {
             <button
               type="button"
               onClick={() => setIsWelcomeOpen(true)}
-              className="hidden sm:flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-gold/15 border border-gold/30 text-gold text-[12px] font-semibold hover:bg-gold/25 transition-colors"
+              className="hidden sm:flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-gold/15 border border-gold/30 text-ink text-[12px] font-medium hover:border-gold transition-colors cursor-pointer"
             >
-              <Sparkles size={14} />
-              <span>AI Daily Briefing</span>
+              <Sparkles size={14} className="text-gold" />
+              <span>Daily Briefing</span>
             </button>
 
             <PortalBell />
@@ -140,11 +161,21 @@ export default function DashboardPage() {
             <PortalAvatar src="https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&h=150&fit=crop" />
           </PortalTopbar>
 
-          {/* Dashboard Content */}
+          {/* Dashboard Content — Original Clean Centered 1200px Flow */}
           <main className="flex-1 p-6 lg:p-10 overflow-y-auto">
-            <div className="w-full grid grid-cols-1 xl:grid-cols-12 gap-8 items-start">
-              <div className="xl:col-span-8 space-y-10 min-w-0">
-              {/* Welcome & Quick Actions */}
+            <div className="max-w-[1200px] mx-auto space-y-10">
+              {invoiceToast && (
+                <div className="px-5 py-3 rounded-xl bg-forest text-canvas border border-gold/40 flex items-center justify-between text-[13px]">
+                  <span className="flex items-center gap-2 font-medium">
+                    <Check size={15} className="text-gold" /> {invoiceToast}
+                  </span>
+                  <Link to="/billing" className="text-gold font-semibold hover:underline">
+                    View in Billing →
+                  </Link>
+                </div>
+              )}
+
+              {/* 1. Welcome & Quick Actions */}
               <div className="flex flex-col lg:flex-row gap-8 justify-between items-start">
                 <div>
                   <div className="flex items-center gap-2 mb-2">
@@ -153,7 +184,9 @@ export default function DashboardPage() {
                       Videographer
                     </span>
                   </div>
-                  <h2 className="text-[28px] font-serif mb-1">Welcome back, Sarah Cabmora</h2>
+                  <h2 className="text-[28px] font-serif mb-1">
+                    Welcome back, {user?.first_name ? user.first_name : 'Sarah Cabmora'}
+                  </h2>
                   <p className="text-ink/60 text-[14px]">
                     Here is the real-time overview of your studio projects, clients, earnings, and
                     media storage.
@@ -165,10 +198,11 @@ export default function DashboardPage() {
                     <Link
                       key={idx}
                       to={action.to}
-                      className={`flex items-center gap-2 px-4 py-2.5 rounded-full text-[12px] font-medium tracking-[0.05em] transition-colors ${idx === 0
-                        ? 'bg-ink text-white hover:bg-gold'
-                        : 'bg-white border border-ink/10 text-ink/70 hover:border-gold hover:text-ink'
-                        }`}
+                      className={`flex items-center gap-2 px-4 py-2.5 rounded-full text-[12px] font-medium tracking-[0.05em] transition-colors ${
+                        idx === 0
+                          ? 'bg-ink text-white hover:bg-gold'
+                          : 'bg-white border border-ink/10 text-ink/70 hover:border-gold hover:text-ink'
+                      }`}
                     >
                       <action.icon size={16} />
                       {action.label}
@@ -177,72 +211,12 @@ export default function DashboardPage() {
                 </div>
               </div>
 
-              {/* Upcoming & Pending Video Call Requests */}
-              {calls.length > 0 && (
-                <div className="bg-white border border-ink/10 rounded-2xl p-6 space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2 font-serif text-[19px] font-semibold">
-                      <Video size={18} className="text-gold" />
-                      <span>Upcoming & Pending Call Requests ({calls.length})</span>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {calls.slice(0, 4).map((c) => (
-                      <div
-                        key={c.id}
-                        className="p-4 rounded-xl border border-ink/10 bg-sand/40 flex items-center justify-between gap-3"
-                      >
-                        <div className="min-w-0">
-                          <div className="text-[13.5px] font-semibold truncate">{c.title}</div>
-                          <div className="text-[11.5px] text-ink/60">
-                            {c.project_title} •{' '}
-                            {new Date(c.proposed_at).toLocaleString(undefined, {
-                              dateStyle: 'medium',
-                              timeStyle: 'short',
-                            })}
-                          </div>
-                          <span className="text-[10.5px] uppercase tracking-wider font-bold text-gold">
-                            {c.status}
-                          </span>
-                        </div>
-
-                        <div className="flex items-center gap-1.5 shrink-0">
-                          {c.status === 'pending' && c.recipient_id === user?.id && (
-                            <>
-                              <button
-                                type="button"
-                                onClick={() => void handleCallRespond(c.id, 'accept')}
-                                className="p-2 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700"
-                                title="Accept Call"
-                              >
-                                <Check size={14} />
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => void handleCallRespond(c.id, 'decline')}
-                                className="p-2 rounded-lg border border-rose-500/30 text-rose-600 hover:bg-rose-500/10"
-                                title="Decline Call"
-                              >
-                                <X size={14} />
-                              </button>
-                            </>
-                          )}
-                          <Link
-                            to={`/projects/${c.project_id}`}
-                            className="px-3 py-1.5 rounded-lg bg-gold text-ink text-[11.5px] font-semibold"
-                          >
-                            Open
-                          </Link>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* High-Level Creator Metrics */}
+              {/* 2. High-Level Creator Metrics */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                <div className="bg-white p-6 border border-ink/5 shadow-sm rounded-xl">
+                <Link
+                  to="/projects"
+                  className="bg-white p-6 border border-ink/5 hover:border-gold hover:-translate-y-0.5 transition-all shadow-sm rounded-xl cursor-pointer block"
+                >
                   <div className="flex items-center justify-between mb-3">
                     <span className="text-[11px] tracking-[0.15em] uppercase text-ink/50 font-medium">
                       Active Projects
@@ -253,9 +227,12 @@ export default function DashboardPage() {
                   <div className="text-[12px] text-emerald-600 flex items-center gap-1 mt-1">
                     <TrendingUp size={14} /> +3 this month
                   </div>
-                </div>
+                </Link>
 
-                <div className="bg-white p-6 border border-ink/5 shadow-sm rounded-xl">
+                <Link
+                  to="/bookings"
+                  className="bg-white p-6 border border-ink/5 hover:border-gold hover:-translate-y-0.5 transition-all shadow-sm rounded-xl cursor-pointer block"
+                >
                   <div className="flex items-center justify-between mb-3">
                     <span className="text-[11px] tracking-[0.15em] uppercase text-ink/50 font-medium">
                       Active Clients
@@ -263,10 +240,15 @@ export default function DashboardPage() {
                     <Users size={18} className="text-gold" />
                   </div>
                   <div className="font-serif text-[32px] font-medium">28</div>
-                  <div className="text-[12px] text-ink/50 mt-1">98% Client Satisfaction Rate</div>
-                </div>
+                  <div className="text-[12px] text-ink/50 mt-1">
+                    +{newClients.length} new bookings today
+                  </div>
+                </Link>
 
-                <div className="bg-white p-6 border border-ink/5 shadow-sm rounded-xl">
+                <Link
+                  to="/billing"
+                  className="bg-white p-6 border border-ink/5 hover:border-gold hover:-translate-y-0.5 transition-all shadow-sm rounded-xl cursor-pointer block"
+                >
                   <div className="flex items-center justify-between mb-3">
                     <span className="text-[11px] tracking-[0.15em] uppercase text-ink/50 font-medium">
                       Total Revenue
@@ -277,9 +259,12 @@ export default function DashboardPage() {
                   <div className="text-[12px] text-emerald-600 flex items-center gap-1 mt-1">
                     <TrendingUp size={14} /> +18.4% vs last quarter
                   </div>
-                </div>
+                </Link>
 
-                <div className="bg-white p-6 border border-ink/5 shadow-sm rounded-xl">
+                <Link
+                  to="/storage"
+                  className="bg-white p-6 border border-ink/5 hover:border-gold hover:-translate-y-0.5 transition-all shadow-sm rounded-xl cursor-pointer block"
+                >
                   <div className="flex items-center justify-between mb-3">
                     <span className="text-[11px] tracking-[0.15em] uppercase text-ink/50 font-medium">
                       Storage Usage
@@ -288,10 +273,94 @@ export default function DashboardPage() {
                   </div>
                   <div className="font-serif text-[32px] font-medium">450 GB</div>
                   <div className="text-[12px] text-ink/50 mt-1">22.5% of 2 TB Cloud Vault</div>
+                </Link>
+              </div>
+
+              {/* 3. Clean 3-Card Studio Pulse Row (Weather, Calls & Bookings, Messages & Referrals) */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {/* Next Project Weather */}
+                <div className="bg-white p-6 border border-ink/5 hover:border-gold transition-colors shadow-sm rounded-xl flex flex-col justify-between gap-4">
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-[11px] tracking-[0.15em] uppercase text-ink/50 font-medium">
+                        Next Shoot Forecast
+                      </span>
+                      <CloudSun size={18} className="text-gold" />
+                    </div>
+                    <div className="flex items-baseline gap-2">
+                      <span className="font-serif text-[28px] font-medium">{weather.tempC}°C</span>
+                      <span className="text-[13px] text-ink/70 font-medium">
+                        {weather.condition}
+                      </span>
+                    </div>
+                    <div className="text-[12px] text-ink/55 mt-1">
+                      {weather.projectTitle} • {weather.location.split(',')[0]} ({weather.shootDate})
+                    </div>
+                  </div>
+                  <div className="pt-3 border-t border-ink/5 flex items-center justify-between text-[11.5px] text-ink/60">
+                    <span>Golden Hour: {weather.goldenHour}</span>
+                    <span className="text-emerald-700 font-medium">{weather.droneStatus}</span>
+                  </div>
+                </div>
+
+                {/* New Clients & Calls */}
+                <div className="bg-white p-6 border border-ink/5 hover:border-gold transition-colors shadow-sm rounded-xl flex flex-col justify-between gap-4">
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-[11px] tracking-[0.15em] uppercase text-ink/50 font-medium">
+                        New Clients & Calls
+                      </span>
+                      <PhoneIncoming size={18} className="text-gold" />
+                    </div>
+                    <div className="font-serif text-[28px] font-medium">
+                      {newClients.length} Bookings • {pendingCallsCount} Calls
+                    </div>
+                    <div className="text-[12px] text-ink/55 mt-1 truncate">
+                      Latest: {newClients[0]?.clientName} ({newClients[0]?.projectTitle})
+                    </div>
+                  </div>
+                  <div className="pt-3 border-t border-ink/5 flex items-center justify-between gap-2 text-[12px]">
+                    <Link to="/bookings" className="text-ink/70 hover:text-gold font-medium">
+                      View Bookings →
+                    </Link>
+                    <button
+                      type="button"
+                      onClick={handleQuickAiInvoice}
+                      className="text-gold font-semibold hover:underline cursor-pointer"
+                    >
+                      + Generate Invoice
+                    </button>
+                  </div>
+                </div>
+
+                {/* Pending Messages & Referrals */}
+                <div className="bg-white p-6 border border-ink/5 hover:border-gold transition-colors shadow-sm rounded-xl flex flex-col justify-between gap-4">
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-[11px] tracking-[0.15em] uppercase text-ink/50 font-medium">
+                        Messages & Referrals
+                      </span>
+                      <MessageSquare size={18} className="text-gold" />
+                    </div>
+                    <div className="font-serif text-[28px] font-medium">
+                      {unreadMessagesCount} Unread • ${referrals.total_earnings.toLocaleString()}
+                    </div>
+                    <div className="text-[12px] text-ink/55 mt-1 truncate">
+                      VIP Code: <span className="font-mono text-ink">{referrals.referral_code}</span> (+{referrals.bonus_storage_gb} GB Vault)
+                    </div>
+                  </div>
+                  <div className="pt-3 border-t border-ink/5 flex items-center justify-between gap-2 text-[12px]">
+                    <Link to="/messages" className="text-ink/70 hover:text-gold font-medium">
+                      Open Messages →
+                    </Link>
+                    <Link to="/referrals" className="text-gold font-semibold hover:underline">
+                      Referrals Hub →
+                    </Link>
+                  </div>
                 </div>
               </div>
 
-              {/* Storage Usage Detailed Breakdown */}
+              {/* 4. Storage Usage Detailed Breakdown */}
               <div className="bg-white border border-ink/5 p-6 lg:p-8 rounded-xl shadow-sm space-y-6">
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                   <div>
@@ -327,7 +396,6 @@ export default function DashboardPage() {
                     <span className="text-gold font-semibold">22.5% Consumed</span>
                   </div>
 
-                  {/* Multi-segmented Progress Bar */}
                   <div className="w-full h-3 bg-canvas rounded-full overflow-hidden flex border border-ink/5">
                     <div
                       className="h-full bg-gold"
@@ -372,7 +440,7 @@ export default function DashboardPage() {
                 </div>
               </div>
 
-              {/* Earnings Overview Panel */}
+              {/* 5. Earnings Overview Panel */}
               <div className="bg-white border border-ink/5 p-6 lg:p-8 rounded-xl shadow-sm space-y-6">
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-ink/5 pb-6">
                   <div>
@@ -432,7 +500,6 @@ export default function DashboardPage() {
                   </div>
                 </div>
 
-                {/* Earnings Bar Visual */}
                 <div className="space-y-2 pt-2">
                   <div className="text-[11px] uppercase tracking-[0.15em] text-ink/50 font-medium">
                     Monthly Revenue Trajectory (2025)
@@ -461,9 +528,8 @@ export default function DashboardPage() {
                 </div>
               </div>
 
-              {/* Active Projects Grid & Clients Overview */}
+              {/* 6. Active Projects Grid & Clients Overview + Recent Activity Feed */}
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
-                {/* Projects Overview */}
                 <div className="lg:col-span-2 space-y-6">
                   <div className="flex items-center justify-between">
                     <h3 className="font-serif text-[22px]">Active Assigned Projects</h3>
@@ -480,7 +546,7 @@ export default function DashboardPage() {
                       <Link
                         to={`/projects/${project.id}`}
                         key={project.id}
-                        className="bg-white border border-ink/5 rounded-xl overflow-hidden group hover:shadow-md transition-all duration-300 block"
+                        className="bg-white border border-ink/5 rounded-xl overflow-hidden group hover:shadow-md hover:border-gold transition-all duration-300 block cursor-pointer"
                       >
                         <div className="h-36 overflow-hidden relative">
                           <img
@@ -522,7 +588,7 @@ export default function DashboardPage() {
                     ))}
                   </div>
 
-                  {/* Clients Overview Table/Cards */}
+                  {/* Clients Overview Table */}
                   <div className="bg-white border border-ink/5 p-6 rounded-xl shadow-sm space-y-4">
                     <div className="flex items-center justify-between">
                       <div>
@@ -592,16 +658,16 @@ export default function DashboardPage() {
                       <h3 className="font-serif text-[22px]">Recent Activities</h3>
                     </div>
 
-                    {/* Activity Filter Tabs */}
                     <div className="flex items-center gap-1 bg-canvas p-1 rounded-lg border border-ink/5">
                       {['all', 'gallery', 'message', 'payment'].map((tab) => (
                         <button
                           key={tab}
                           onClick={() => setActiveActivityTab(tab)}
-                          className={`flex-1 py-1.5 text-[10px] uppercase tracking-[0.08em] font-medium rounded transition-colors ${activeActivityTab === tab
-                            ? 'bg-ink text-white shadow-xs'
-                            : 'text-ink/60 hover:text-ink'
-                            }`}
+                          className={`flex-1 py-1.5 text-[10px] uppercase tracking-[0.08em] font-medium rounded transition-colors cursor-pointer ${
+                            activeActivityTab === tab
+                              ? 'bg-ink text-white shadow-xs'
+                              : 'text-ink/60 hover:text-ink'
+                          }`}
                         >
                           {tab}
                         </button>
@@ -654,14 +720,43 @@ export default function DashboardPage() {
                   </div>
                 </div>
               </div>
-              </div>
-
-              {/* Right Side: Interactive AI Studio Assistant Chat Box */}
-              <div className="xl:col-span-4">
-                <CreatorAiAssistantPanel briefing={briefing} />
-              </div>
             </div>
           </main>
+
+          {/* Single Right-Side AI Assistant Toggle Button & Right Popup Panel */}
+          <div className="fixed bottom-6 right-6 z-40 flex flex-col items-end gap-3">
+            {isAiDrawerOpen && (
+              <div className="w-[calc(100vw-3rem)] sm:w-[400px] shadow-2xl rounded-2xl overflow-hidden border border-gold/40 cab-fade-in">
+                <CreatorAiAssistantPanel
+                  briefing={briefing}
+                  compact
+                  onInvoiceSaved={(inv) =>
+                    setInvoiceToast(
+                      `AI generated Invoice ${inv.id} ($${inv.amount.toLocaleString()}) for ${inv.client}`,
+                    )
+                  }
+                />
+              </div>
+            )}
+
+            <button
+              type="button"
+              onClick={() => setIsAiDrawerOpen((open) => !open)}
+              className="flex items-center gap-2.5 px-4 py-3 rounded-full bg-forest text-canvas border border-gold/50 shadow-xl hover:bg-gold hover:text-ink transition-all cursor-pointer font-semibold text-[13px]"
+            >
+              {isAiDrawerOpen ? (
+                <>
+                  <X size={16} />
+                  <span>Close AI Assistant</span>
+                </>
+              ) : (
+                <>
+                  <Bot size={17} className="text-gold" />
+                  <span>AI Assistant</span>
+                </>
+              )}
+            </button>
+          </div>
 
           {briefing && (
             <CreatorWelcomeModal

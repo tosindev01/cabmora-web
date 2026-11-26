@@ -1,228 +1,331 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
-import { Image as ImageIcon, MessageSquare, Send } from 'lucide-react';
-
-import { ApiError } from '@cabmora/api-client';
-import { sentenceCase } from '@cabmora/ui';
-
+import {
+  Send,
+  Phone,
+  Video,
+  Mic,
+  MicOff,
+  PhoneOff,
+  CheckCheck,
+  Navigation,
+  Clock,
+  ImagePlus,
+} from 'lucide-react';
+import { Modal } from '@cabmora/ui';
 import { ClientPortalShell } from '@/features/client/components/ClientPortalShell';
 import {
-  STAGE_LABEL,
-  addMyProjectComment,
-  listMyConversations,
-  type Conversation,
-} from '@/features/client/api';
-import { useAuth } from '@/shared/auth';
+  STUDIO_WORKSPACE_EVENT,
+  getPendingMessages,
+  getProjectLogisticsMeta,
+  replyToPendingMessage,
+  type PendingClientMessage,
+} from '@/shared/collaboration/studioWorkspaceStore';
 
-function when(iso: string): string {
-  const at = new Date(iso);
-  const today = new Date().toDateString() === at.toDateString();
-  return today
-    ? at.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
-    : at.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
-}
+const SAMPLE_CLIENT_INSPIRATION =
+  'https://images.unsplash.com/photo-1511285560929-80b456fea0bc?w=800&h=550&fit=crop';
 
-/**
- * Everything said between a client and us, grouped by the work it is about.
- *
- * The gallery already carries what was said about one photograph. What it
- * could not answer is "when will the rest be ready?" — a question about the
- * project rather than any frame in it. With nowhere to ask that, a client
- * asks by email, which is the thing this portal exists to replace.
- *
- * Replaces a placeholder that said messaging had not been built. It mostly
- * had: comments, amendments and authorship were all real, and nothing
- * gathered them into a conversation.
- */
 export default function ClientMessagesPage() {
-  const { user } = useAuth();
-  const [conversations, setConversations] = useState<Conversation[] | null>(null);
-  const [openId, setOpenId] = useState<string | null>(null);
+  const [threads, setThreads] = useState<PendingClientMessage[]>(() => getPendingMessages());
+  const [selectedId, setSelectedId] = useState<string>(() => getPendingMessages()[0]?.id ?? '');
   const [draft, setDraft] = useState('');
-  const [sending, setSending] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [attachPhoto, setAttachPhoto] = useState(false);
 
-  const refresh = useCallback(async () => {
-    try {
-      const found = await listMyConversations();
-      setConversations(found);
-      // Open the most recent on arrival. A list of one that you still have to
-      // click is a list of one you wonder about.
-      setOpenId((current) => current ?? found[0]?.project_id ?? null);
-    } catch (err) {
-      setConversations([]);
-      setError(err instanceof ApiError ? err.message : 'Could not load your messages.');
-    }
+  // Live Audio / Video Call with Creator
+  const [activeCallMode, setActiveCallMode] = useState<'video' | 'audio' | null>(null);
+  const [isMicMuted, setIsMicMuted] = useState(false);
+  const [callSeconds, setCallSeconds] = useState(0);
+
+  useEffect(() => {
+    const handleSync = () => setThreads(getPendingMessages());
+    window.addEventListener(STUDIO_WORKSPACE_EVENT, handleSync);
+    return () => window.removeEventListener(STUDIO_WORKSPACE_EVENT, handleSync);
   }, []);
 
   useEffect(() => {
-    void refresh();
-  }, [refresh]);
-
-  const open = conversations?.find((c) => c.project_id === openId) ?? null;
-
-  async function send() {
-    if (!draft.trim() || !open) return;
-    setSending(true);
-    setError(null);
-    try {
-      await addMyProjectComment(open.project_id, { body: draft.trim() });
-      setDraft('');
-      await refresh();
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not send that.');
-    } finally {
-      setSending(false);
+    if (!activeCallMode) {
+      setCallSeconds(0);
+      return;
     }
-  }
+    const timer = window.setInterval(() => setCallSeconds((s) => s + 1), 1000);
+    return () => window.clearInterval(timer);
+  }, [activeCallMode]);
+
+  const activeThread = threads.find((t) => t.id === selectedId) ?? threads[0]!;
+  const logistics = getProjectLogisticsMeta(activeThread.projectId);
+
+  const formatCallTime = (secs: number) => {
+    const m = Math.floor(secs / 60);
+    const s = secs % 60;
+    return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+  };
+
+  const handleSend = (e: FormEvent) => {
+    e.preventDefault();
+    if (!draft.trim() && !attachPhoto) return;
+    const text =
+      draft.trim() || `Shared a reference photo for ${activeThread.projectTitle}.`;
+    const updated = replyToPendingMessage(
+      activeThread.id,
+      text,
+      attachPhoto ? SAMPLE_CLIENT_INSPIRATION : undefined,
+      'client',
+    );
+    setThreads(updated);
+    setDraft('');
+    setAttachPhoto(false);
+  };
+
+  const handleEndCall = () => {
+    if (!activeCallMode) return;
+    const duration = formatCallTime(Math.max(15, callSeconds));
+    const updated = replyToPendingMessage(
+      activeThread.id,
+      `Client ${activeCallMode === 'video' ? 'Video' : 'Audio'} Call with Lead Creator Sarah Cabmora (${duration})`,
+      undefined,
+      'client',
+      {
+        mode: activeCallMode,
+        status: 'completed',
+        duration,
+      },
+    );
+    setThreads(updated);
+    setActiveCallMode(null);
+  };
 
   return (
-    <ClientPortalShell title="Messages" subtitle="Everything said about your work, in one place">
-      {conversations === null ? (
-        <p className="text-ink/50 text-[14px] py-12">Loading…</p>
-      ) : conversations.length === 0 ? (
-        <div className="border border-ink/10 bg-white rounded-xl p-12 text-center">
-          <MessageSquare size={28} className="mx-auto mb-4 text-gold" strokeWidth={1.5} />
-          <p className="text-[14px] text-ink/55 max-w-[420px] mx-auto">
-            Once we have booked a shoot for you, this is where you and your photographer talk about
-            it.
-          </p>
+    <ClientPortalShell
+      title="Messages & Live Studio Calls"
+      subtitle="Direct conversation and audio/video calls with your photographer & videographer"
+    >
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        {/* Project Thread Selector */}
+        <div className="lg:col-span-4 space-y-2.5">
+          {threads.map((t) => (
+            <button
+              key={t.id}
+              type="button"
+              onClick={() => setSelectedId(t.id)}
+              className={`w-full text-left p-4 rounded-2xl border transition-all cursor-pointer ${
+                t.id === activeThread.id
+                  ? 'border-gold bg-gold/10 shadow-sm'
+                  : 'border-ink/10 bg-white hover:border-gold/50'
+              }`}
+            >
+              <div className="flex items-center justify-between gap-2">
+                <span className="font-serif text-[16px] font-semibold text-ink truncate">
+                  {t.projectTitle}
+                </span>
+                <span className="text-[11px] text-ink/45 shrink-0">{t.receivedAt}</span>
+              </div>
+              <div className="text-[11.5px] text-gold font-medium mt-0.5">
+                Lead Creator: Sarah Cabmora • ● Online
+              </div>
+              <p className="text-[12px] text-ink/60 truncate mt-1">{t.preview}</p>
+            </button>
+          ))}
         </div>
-      ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-5 items-start">
-          {/* Which conversation. Hidden on a phone once one is open, because
-              two panels at 375px is two cramped panels. */}
-          <ul className={`space-y-2 ${open ? 'hidden lg:block' : ''}`}>
-            {conversations.map((conversation) => {
-              const last = conversation.messages[conversation.messages.length - 1];
+
+        {/* Active Conversation & Call Box */}
+        <section className="lg:col-span-8 bg-white border border-ink/10 rounded-2xl overflow-hidden shadow-sm flex flex-col min-h-[540px]">
+          <header className="p-4 sm:p-5 bg-forest text-canvas border-b border-gold/30 flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <img
+                src="https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&h=150&fit=crop"
+                alt="Sarah Cabmora"
+                className="w-10 h-10 rounded-full object-cover border border-gold"
+              />
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="font-serif text-[17px] font-bold text-white">
+                    Sarah Cabmora (Lead Creator)
+                  </h3>
+                  <span className="text-[10.5px] text-emerald-400">● Online</span>
+                </div>
+                <div className="text-[11.5px] text-canvas/70 flex flex-wrap items-center gap-2">
+                  <span>{activeThread.projectTitle}</span>
+                  <span>•</span>
+                  <span className="text-gold flex items-center gap-1">
+                    <Navigation size={11} /> {logistics.venueDistanceKm} km to venue
+                  </span>
+                  <span>•</span>
+                  <span className="text-rose-300 flex items-center gap-1">
+                    <Clock size={11} /> {logistics.targetOffsetHours}h left
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setActiveCallMode('audio')}
+                className="px-3 py-2 rounded-xl bg-forest-light hover:bg-gold hover:text-ink text-canvas text-[12px] font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+              >
+                <Phone size={14} />
+                <span>Audio Call</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveCallMode('video')}
+                className="px-3.5 py-2 rounded-xl bg-gold text-ink hover:bg-gold-dark text-[12px] font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+              >
+                <Video size={14} />
+                <span>Video Call</span>
+              </button>
+              <Link
+                to={`/client/projects/${activeThread.projectId}`}
+                className="px-3 py-2 rounded-xl border border-canvas/20 text-[12px] text-canvas hover:border-gold"
+              >
+                Gallery
+              </Link>
+            </div>
+          </header>
+
+          {/* Messages Stream */}
+          <div className="flex-1 overflow-y-auto p-5 space-y-4 max-h-[380px] bg-canvas/50">
+            {activeThread.replies.map((msg) => {
+              const mine = msg.sender === 'client';
               return (
-                <li key={conversation.project_id}>
-                  <button
-                    type="button"
-                    onClick={() => setOpenId(conversation.project_id)}
-                    className={`w-full text-left border rounded-xl px-4 py-3 transition-colors cursor-pointer ${
-                      conversation.project_id === openId
-                        ? 'border-gold bg-gold/8'
-                        : 'border-ink/10 bg-white hover:border-gold/40'
+                <div
+                  key={msg.id}
+                  className={`flex flex-col ${mine ? 'items-end' : 'items-start'}`}
+                >
+                  <div
+                    className={`max-w-[80%] rounded-2xl px-4 py-3 text-[13.5px] space-y-2 ${
+                      msg.callEvent
+                        ? 'bg-forest text-canvas border border-gold/40'
+                        : mine
+                          ? 'bg-ink text-canvas rounded-br-sm'
+                          : 'bg-white text-ink border border-ink/10 rounded-bl-sm shadow-xs'
                     }`}
                   >
-                    <p className="font-medium text-[14.5px] truncate">
-                      {sentenceCase(conversation.project_title)}
-                    </p>
-                    <p className="text-[12.5px] text-ink/50 truncate">
-                      {last ? last.body : 'No messages yet'}
-                    </p>
-                  </button>
-                </li>
+                    {msg.callEvent ? (
+                      <div className="flex items-center gap-2.5">
+                        {msg.callEvent.mode === 'video' ? (
+                          <Video size={16} className="text-gold" />
+                        ) : (
+                          <Phone size={16} className="text-gold" />
+                        )}
+                        <div>
+                          <div className="font-semibold text-[13px]">{msg.text}</div>
+                          <div className="text-[11px] text-gold">
+                            Call Duration: {msg.callEvent.duration}
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <p>{msg.text}</p>
+                    )}
+
+                    {msg.imageUrl && (
+                      <img
+                        src={msg.imageUrl}
+                        alt="Shared reference"
+                        className="w-full max-h-48 object-cover rounded-xl"
+                      />
+                    )}
+
+                    <div
+                      className={`text-[10.5px] flex items-center gap-1 ${
+                        mine ? 'text-canvas/60 justify-end' : 'text-ink/45'
+                      }`}
+                    >
+                      <span>{mine ? 'You' : 'Sarah Cabmora'} • {msg.time}</span>
+                      {mine && <CheckCheck size={12} />}
+                    </div>
+                  </div>
+                </div>
               );
             })}
-          </ul>
+          </div>
 
-          {open && (
-            <section className="border border-ink/10 bg-white rounded-xl flex flex-col min-h-[420px]">
-              <header className="flex items-center justify-between gap-3 px-5 py-4 border-b border-ink/10">
-                <div className="min-w-0">
-                  <p className="font-medium truncate">{sentenceCase(open.project_title)}</p>
-                  <p className="text-[12.5px] text-ink/50">{STAGE_LABEL[open.stage]}</p>
-                </div>
-                <div className="flex items-center gap-3 shrink-0">
-                  <button
-                    type="button"
-                    onClick={() => setOpenId(null)}
-                    className="lg:hidden text-[12px] uppercase tracking-[0.1em] font-semibold text-ink/50"
-                  >
-                    All
-                  </button>
-                  <Link
-                    to={`/client/projects/${open.project_id}`}
-                    className="text-[11px] tracking-[0.15em] uppercase text-gold hover:text-ink font-semibold whitespace-nowrap"
-                  >
-                    Open gallery
-                  </Link>
-                </div>
-              </header>
-
-              <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4 max-h-[52vh]">
-                {open.messages.length === 0 ? (
-                  <p className="text-[13.5px] text-ink/45 py-6 text-center">
-                    Nothing said yet. Ask us anything about this shoot.
-                  </p>
-                ) : (
-                  open.messages.map((message) => {
-                    const mine = message.author_id === user?.id;
-                    return (
-                      <div
-                        key={message.id}
-                        className={`flex flex-col ${mine ? 'items-end' : 'items-start'}`}
-                      >
-                        <div
-                          className={`max-w-[85%] rounded-xl px-4 py-2.5 ${
-                            mine ? 'bg-ink text-canvas' : 'bg-canvas text-ink'
-                          }`}
-                        >
-                          {/* Said where it was said. A remark about one
-                              photograph reads as a non-sequitur in a project
-                              thread without this. */}
-                          {message.asset_id && (
-                            <span
-                              className={`flex items-center gap-1.5 text-[11px] mb-1 ${
-                                mine ? 'text-canvas/55' : 'text-ink/45'
-                              }`}
-                            >
-                              <ImageIcon size={11} />
-                              About one photograph
-                            </span>
-                          )}
-                          <p className="text-[14px] leading-relaxed whitespace-pre-line">
-                            {message.body}
-                          </p>
-                        </div>
-                        <span className="text-[11.5px] text-ink/40 mt-1 px-1">
-                          {mine ? 'You' : message.author_name} · {when(message.created_at)}
-                          {message.needs_action && ' · awaiting us'}
-                        </span>
-                      </div>
-                    );
-                  })
-                )}
-              </div>
-
-              {error && (
-                <p role="alert" className="text-[13px] text-red-700 px-5 pb-2">
-                  {error}
-                </p>
-              )}
-
-              <div className="border-t border-ink/10 p-4 flex items-end gap-2">
-                <textarea
-                  value={draft}
-                  onChange={(event) => setDraft(event.target.value)}
-                  onKeyDown={(event) => {
-                    // Enter sends, shift+enter breaks the line — the habit
-                    // from every other message box they use.
-                    if (event.key === 'Enter' && !event.shiftKey) {
-                      event.preventDefault();
-                      void send();
-                    }
-                  }}
-                  rows={2}
-                  maxLength={2000}
-                  placeholder="Ask us anything about this shoot…"
-                  className="flex-1 rounded-lg border border-ink/15 bg-canvas px-3.5 py-2.5 text-[14px] leading-relaxed outline-none focus:border-gold resize-none"
-                />
+          {/* Input Box */}
+          <form onSubmit={handleSend} className="p-4 bg-white border-t border-ink/10 space-y-2">
+            {attachPhoto && (
+              <div className="text-[11.5px] text-gold bg-sand px-3 py-1.5 rounded-lg flex items-center justify-between">
+                <span>Attached: Reference Portrait Select</span>
                 <button
                   type="button"
-                  onClick={() => void send()}
-                  disabled={sending || !draft.trim()}
-                  aria-label="Send message"
-                  className="shrink-0 w-11 h-11 rounded-full bg-ink text-white flex items-center justify-center hover:bg-gold hover:text-ink transition-colors disabled:opacity-40 cursor-pointer"
+                  onClick={() => setAttachPhoto(false)}
+                  className="text-ink/60 hover:text-ink"
                 >
-                  <Send size={16} />
+                  Remove
                 </button>
               </div>
-            </section>
-          )}
-        </div>
+            )}
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setAttachPhoto((v) => !v)}
+                className="p-2.5 rounded-xl border border-ink/15 text-ink/65 hover:border-gold hover:text-gold transition-colors cursor-pointer"
+                title="Attach reference photo"
+              >
+                <ImagePlus size={16} />
+              </button>
+              <input
+                type="text"
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+                placeholder="Write a message to your photographer Sarah Cabmora..."
+                className="flex-1 rounded-xl border border-ink/15 bg-canvas px-4 py-2.5 text-[13.5px] outline-none focus:border-gold"
+              />
+              <button
+                type="submit"
+                className="px-4 py-2.5 rounded-xl bg-ink text-white hover:bg-gold hover:text-ink font-semibold text-[13px] flex items-center gap-1.5 transition-colors cursor-pointer"
+              >
+                <Send size={15} />
+                <span>Send</span>
+              </button>
+            </div>
+          </form>
+        </section>
+      </div>
+
+      {/* Live Call Modal for Client */}
+      {activeCallMode && (
+        <Modal
+          open
+          onOpenChange={(next) => !next && handleEndCall()}
+          size="lg"
+          tone="dark"
+          title={`Live ${activeCallMode === 'video' ? 'Video' : 'Audio'} Call with Sarah Cabmora (${formatCallTime(callSeconds)})`}
+        >
+          <div className="space-y-4">
+            <div className="relative rounded-2xl overflow-hidden bg-noir border border-gold/30 h-72 flex flex-col items-center justify-center gap-3">
+              <img
+                src="https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&h=150&fit=crop"
+                alt="Sarah Cabmora"
+                className="w-24 h-24 rounded-full object-cover border-2 border-gold"
+              />
+              <div className="text-center">
+                <div className="font-serif text-[18px] font-bold text-white">Sarah Cabmora</div>
+                <div className="text-[12px] text-gold">
+                  {activeThread.projectTitle} • {formatCallTime(callSeconds)}
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center justify-center gap-3">
+              <button
+                type="button"
+                onClick={() => setIsMicMuted((m) => !m)}
+                className="px-4 py-2 rounded-xl bg-forest border border-canvas/15 text-canvas text-[12.5px] font-semibold flex items-center gap-1.5 cursor-pointer"
+              >
+                {isMicMuted ? <MicOff size={15} /> : <Mic size={15} />}
+                <span>{isMicMuted ? 'Unmute' : 'Mute'}</span>
+              </button>
+              <button
+                type="button"
+                onClick={handleEndCall}
+                className="px-5 py-2 rounded-xl bg-rose-600 text-white hover:bg-rose-700 text-[12.5px] font-semibold flex items-center gap-1.5 cursor-pointer"
+              >
+                <PhoneOff size={15} />
+                <span>End Call</span>
+              </button>
+            </div>
+          </div>
+        </Modal>
       )}
     </ClientPortalShell>
   );

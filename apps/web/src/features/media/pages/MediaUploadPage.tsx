@@ -294,10 +294,10 @@ export default function MediaUploadPage() {
                     </div>
                   </div>
                   <Link
-                    to="/galleries"
+                    to="/ai"
                     className="text-[12px] text-ink font-medium tracking-[0.05em] hover:text-gold transition-colors underline"
                   >
-                    Media Library
+                    AI Assistants
                   </Link>
                 </div>
               </div>

@@ -5,7 +5,7 @@
  * the JSX so that swap touches one module instead of the component — and so a
  * test can import them without a DOM.
  */
-import { Image as ImageIcon, Plus, UploadCloud, FileText } from 'lucide-react';
+import { Plus, UploadCloud, FileText } from 'lucide-react';
 
 export const RECENT_ACTIVITIES = [
   {
@@ -129,6 +129,5 @@ export const CLIENTS_OVERVIEW = [
 export const QUICK_ACTIONS = [
   { icon: Plus, label: 'New Project', to: '/projects' },
   { icon: UploadCloud, label: 'Upload Media', to: '/upload' },
-  { icon: ImageIcon, label: 'Media Library', to: '/galleries' },
   { icon: FileText, label: 'Create Invoice', to: '/billing' },
 ];

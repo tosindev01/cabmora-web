@@ -64,8 +64,10 @@ export function PortalTopbar({
         <div className="flex items-center gap-2 min-w-0">
           {Icon && <Icon size={22} className="text-gold" />}
           <div className="min-w-0">
-            <h1 className="font-serif text-[22px] lg:text-[26px] truncate">{title}</h1>
-            {subtitle && <p className="text-[12px] opacity-50 hidden sm:block">{subtitle}</p>}
+            <h1 className="font-serif text-[20px] lg:text-[24px] truncate leading-tight">{title}</h1>
+            {subtitle && (
+              <p className="text-[12px] opacity-50 hidden sm:block truncate">{subtitle}</p>
+            )}
           </div>
         </div>
       </div>

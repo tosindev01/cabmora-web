@@ -5,6 +5,7 @@ import { ChevronLeft, ChevronRight, Link as LinkIcon, Lock } from 'lucide-react'
 
 import { ApiError } from '@cabmora/api-client';
 import { Modal, SwipeArea, VideoStage, useArrowSteps } from '@cabmora/ui';
+import { ClientScreenSecurityShield } from '@/shared/collaboration/ClientScreenSecurityShield';
 
 import {
   viewSharedGallery,
@@ -83,7 +84,8 @@ export default function SharedGalleryPage() {
   }
 
   return (
-    <main className="min-h-screen bg-canvas">
+    <ClientScreenSecurityShield clientLabel={gallery.project_title}>
+      <main className="min-h-screen bg-canvas">
       <header className="border-b border-ink/10 bg-white">
         <div className="max-w-[1200px] mx-auto px-6 py-8">
           <p className="text-[10px] tracking-[0.26em] uppercase text-gold font-medium mb-2">
@@ -197,6 +199,7 @@ export default function SharedGalleryPage() {
           </div>
         </Modal>
       )}
-    </main>
+      </main>
+    </ClientScreenSecurityShield>
   );
 }

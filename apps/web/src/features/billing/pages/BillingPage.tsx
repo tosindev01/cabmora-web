@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactElement, type ReactNode } from 'react';
+import { useEffect, useState, type FormEvent, type ReactElement, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import {
   AlertCircle,
@@ -10,16 +10,24 @@ import {
   MoreVertical,
   Plus,
   Settings,
+  Sparkles,
 } from 'lucide-react';
-
+import { Modal } from '@cabmora/ui';
 import { PortalAvatar, PortalBell, PortalShell, PortalTopbar } from '@/shared/portal';
 import {
-  INVOICES,
   INVOICE_STATUS_STYLE,
   PAYMENT_HISTORY,
   PAYMENT_METHODS,
   type InvoiceStatus,
 } from '@/features/billing/data';
+import {
+  STUDIO_WORKSPACE_EVENT,
+  buildAiInvoiceDraft,
+  getStudioInvoices,
+  markStudioInvoicePaid,
+  saveStudioInvoice,
+  type CreatorGeneratedInvoice,
+} from '@/shared/collaboration/studioWorkspaceStore';
 
 const AVATAR = 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&h=150&fit=crop';
 
@@ -40,20 +48,61 @@ const CARD = 'bg-white border border-ink/5 rounded-xl shadow-sm';
 const TABLE_HEAD =
   'bg-canvas border-b border-ink/5 text-[11px] uppercase tracking-[0.1em] text-ink/50';
 const ICON_BUTTON =
-  'w-8 h-8 rounded-full flex items-center justify-center text-ink/50 hover:bg-ink/5 hover:text-ink transition-colors';
+  'w-8 h-8 rounded-full flex items-center justify-center text-ink/50 hover:bg-ink/5 hover:text-ink transition-colors cursor-pointer';
 
 export default function BillingPage() {
   const [activeTab, setActiveTab] = useState<BillingTab>('invoices');
+  const [invoices, setInvoices] = useState<CreatorGeneratedInvoice[]>(() => getStudioInvoices());
+  const [isAiGeneratorOpen, setIsAiGeneratorOpen] = useState(false);
+  const [selectedInvoice, setSelectedInvoice] = useState<CreatorGeneratedInvoice | null>(null);
+
+  const [clientName, setClientName] = useState('Clara & Julian Mercer');
+  const [clientEmail, setClientEmail] = useState('clara.mercer@ateliermercer.com');
+  const [projectTitle, setProjectTitle] = useState('Lake Como Destination Wedding');
+  const [amount, setAmount] = useState('6250');
+  const [includeDrone, setIncludeDrone] = useState(true);
+  const [includeRehearsal, setIncludeRehearsal] = useState(false);
 
   useEffect(() => {
     window.scrollTo(0, 0);
+    const handleSync = () => setInvoices(getStudioInvoices());
+    window.addEventListener(STUDIO_WORKSPACE_EVENT, handleSync);
+    return () => window.removeEventListener(STUDIO_WORKSPACE_EVENT, handleSync);
   }, []);
+
+  const handleGenerateAiInvoice = (e: FormEvent) => {
+    e.preventDefault();
+    const draft = buildAiInvoiceDraft({
+      clientName,
+      clientEmail,
+      projectTitle,
+      amount: Number(amount) || 4500,
+      includeDrone,
+      includeRehearsal,
+    });
+    const updated = saveStudioInvoice(draft);
+    setInvoices(updated);
+    setIsAiGeneratorOpen(false);
+    setSelectedInvoice(draft);
+  };
+
+  const outstandingTotal = invoices
+    .filter((i) => i.status !== 'Paid')
+    .reduce((sum, i) => sum + i.amount, 0);
 
   return (
     <PortalShell>
       {({ toggleSidebar }) => (
         <>
           <PortalTopbar title="Billing & Payments" onToggleSidebar={toggleSidebar}>
+            <button
+              type="button"
+              onClick={() => setIsAiGeneratorOpen(true)}
+              className="hidden sm:flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-gold text-ink text-[12px] font-semibold hover:bg-gold-dark transition-colors cursor-pointer"
+            >
+              <Sparkles size={14} />
+              <span>AI Generate Invoice</span>
+            </button>
             <PortalBell />
             <PortalAvatar src={AVATAR} />
           </PortalTopbar>
@@ -62,7 +111,10 @@ export default function BillingPage() {
             <div className="max-w-[1200px] mx-auto space-y-8">
               {/* Overview stats */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <StatCard label="Outstanding Balance" value="$7,750">
+                <StatCard
+                  label="Outstanding Balance"
+                  value={`$${outstandingTotal.toLocaleString()}`}
+                >
                   <span className="text-red-600 flex items-center gap-1.5">
                     <AlertCircle size={14} />
                     $3,500 overdue
@@ -91,7 +143,7 @@ export default function BillingPage() {
                         type="button"
                         onClick={() => setActiveTab(tab.id)}
                         aria-selected={activeTab === tab.id}
-                        className={`pb-4 text-[14px] font-medium transition-colors relative ${
+                        className={`pb-4 text-[14px] font-medium transition-colors relative cursor-pointer ${
                           activeTab === tab.id ? 'text-ink' : 'text-ink/50 hover:text-ink'
                         }`}
                       >
@@ -105,14 +157,23 @@ export default function BillingPage() {
 
                   {activeTab === 'invoices' && (
                     <section className={`${CARD} overflow-hidden`}>
-                      <div className="p-6 border-b border-ink/5 flex items-center justify-between">
-                        <h3 className="font-serif text-[20px]">All Invoices</h3>
+                      <div className="p-6 border-b border-ink/5 flex flex-wrap items-center justify-between gap-3">
+                        <div>
+                          <h3 className="font-serif text-[20px]">
+                            All Creator Invoices ({invoices.length})
+                          </h3>
+                          <p className="text-[12px] text-ink/55">
+                            Includes AI-generated studio invoices synced from your briefing and
+                            chat assistant.
+                          </p>
+                        </div>
                         <button
                           type="button"
-                          className="flex items-center gap-2 bg-ink text-white px-4 py-2 rounded-full text-[12px] font-medium tracking-[0.05em] hover:bg-gold transition-colors shadow-sm"
+                          onClick={() => setIsAiGeneratorOpen(true)}
+                          className="flex items-center gap-2 bg-ink text-white px-4 py-2 rounded-full text-[12px] font-medium tracking-[0.05em] hover:bg-gold hover:text-ink transition-colors shadow-sm cursor-pointer"
                         >
-                          <Plus size={14} />
-                          Create Invoice
+                          <Sparkles size={14} />
+                          AI Generate Invoice
                         </button>
                       </div>
 
@@ -127,14 +188,21 @@ export default function BillingPage() {
                             </tr>
                           </thead>
                           <tbody>
-                            {INVOICES.map((invoice) => (
+                            {invoices.map((invoice) => (
                               <tr
                                 key={invoice.id}
                                 className="border-b border-ink/5 hover:bg-canvas/50 transition-colors"
                               >
                                 <td className="p-4">
-                                  <div className="font-medium text-[14px] mb-1">
-                                    {invoice.client}
+                                  <div className="flex items-center gap-2 mb-1">
+                                    <span className="font-medium text-[14px]">
+                                      {invoice.client}
+                                    </span>
+                                    {invoice.generatedByAi && (
+                                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-gold/20 text-ink text-[10px] font-bold uppercase tracking-wider">
+                                        <Sparkles size={10} className="text-gold" /> AI Generated
+                                      </span>
+                                    )}
                                   </div>
                                   <div className="text-[12px] text-ink/50 mb-0.5">
                                     {invoice.project}
@@ -159,20 +227,25 @@ export default function BillingPage() {
                                     {invoice.status !== 'Paid' && (
                                       <button
                                         type="button"
-                                        className="px-3 py-1.5 bg-ink text-white rounded-full text-[11px] font-medium tracking-[0.05em] hover:bg-gold transition-colors"
+                                        onClick={() =>
+                                          setInvoices(markStudioInvoicePaid(invoice.id))
+                                        }
+                                        className="px-3 py-1.5 bg-ink text-white rounded-full text-[11px] font-medium tracking-[0.05em] hover:bg-gold hover:text-ink transition-colors cursor-pointer"
                                       >
-                                        Pay
+                                        Mark Paid
                                       </button>
                                     )}
                                     <button
                                       type="button"
+                                      onClick={() => setSelectedInvoice(invoice)}
                                       className={ICON_BUTTON}
-                                      title="Download PDF"
+                                      title="View & Download PDF"
                                     >
                                       <Download size={14} />
                                     </button>
                                     <button
                                       type="button"
+                                      onClick={() => setSelectedInvoice(invoice)}
                                       className={ICON_BUTTON}
                                       aria-label="More actions"
                                     >
@@ -369,6 +442,208 @@ export default function BillingPage() {
               </div>
             </div>
           </main>
+
+          {/* AI Invoice Generator Modal */}
+          {isAiGeneratorOpen && (
+            <Modal
+              open
+              onOpenChange={(next) => {
+                if (!next) setIsAiGeneratorOpen(false);
+              }}
+              size="md"
+              title="Cabmora AI Creator Invoice Generator"
+            >
+              <form onSubmit={handleGenerateAiInvoice} className="space-y-4">
+                <p className="text-[13px] text-ink/65">
+                  Automatically draft an itemized photography & videography invoice for your client.
+                </p>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[11.5px] font-semibold uppercase tracking-wider text-ink/60 mb-1">
+                      Client Name
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={clientName}
+                      onChange={(e) => setClientName(e.target.value)}
+                      className="w-full border border-ink/15 rounded-xl px-3 py-2 text-[13px] outline-none focus:border-gold"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11.5px] font-semibold uppercase tracking-wider text-ink/60 mb-1">
+                      Client Email
+                    </label>
+                    <input
+                      type="email"
+                      required
+                      value={clientEmail}
+                      onChange={(e) => setClientEmail(e.target.value)}
+                      className="w-full border border-ink/15 rounded-xl px-3 py-2 text-[13px] outline-none focus:border-gold"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[11.5px] font-semibold uppercase tracking-wider text-ink/60 mb-1">
+                      Project Title
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={projectTitle}
+                      onChange={(e) => setProjectTitle(e.target.value)}
+                      className="w-full border border-ink/15 rounded-xl px-3 py-2 text-[13px] outline-none focus:border-gold"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11.5px] font-semibold uppercase tracking-wider text-ink/60 mb-1">
+                      Base Package Amount (USD)
+                    </label>
+                    <input
+                      type="number"
+                      required
+                      min={100}
+                      value={amount}
+                      onChange={(e) => setAmount(e.target.value)}
+                      className="w-full border border-ink/15 rounded-xl px-3 py-2 text-[13px] outline-none focus:border-gold"
+                    />
+                  </div>
+                </div>
+
+                <div className="p-3.5 rounded-xl bg-sand border border-ink/10 space-y-2">
+                  <div className="text-[11px] uppercase tracking-wider font-bold text-ink/60">
+                    AI Smart Deliverable Add-Ons
+                  </div>
+                  <label className="flex items-center gap-2 text-[13px] cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={includeDrone}
+                      onChange={(e) => setIncludeDrone(e.target.checked)}
+                      className="accent-gold"
+                    />
+                    <span>4K ProRes Aerial Drone Cinematography (+$650)</span>
+                  </label>
+                  <label className="flex items-center gap-2 text-[13px] cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={includeRehearsal}
+                      onChange={(e) => setIncludeRehearsal(e.target.checked)}
+                      className="accent-gold"
+                    />
+                    <span>Rehearsal Dinner Coverage — 2 Hours (+$700)</span>
+                  </label>
+                </div>
+
+                <div className="flex items-center justify-end gap-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsAiGeneratorOpen(false)}
+                    className="px-4 py-2 rounded-xl border border-ink/15 text-[12.5px] font-medium"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-5 py-2 rounded-xl bg-gold text-ink font-semibold text-[12.5px] hover:bg-gold-dark flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <Plus size={14} />
+                    <span>Generate & Issue Invoice</span>
+                  </button>
+                </div>
+              </form>
+            </Modal>
+          )}
+
+          {/* Invoice Detail / PDF Preview Modal */}
+          {selectedInvoice && (
+            <Modal
+              open
+              onOpenChange={(next) => {
+                if (!next) setSelectedInvoice(null);
+              }}
+              size="lg"
+              title={`Invoice ${selectedInvoice.id} — ${selectedInvoice.client}`}
+            >
+              <div className="space-y-6 text-ink">
+                <div className="flex flex-wrap items-start justify-between gap-4 border-b border-ink/10 pb-4">
+                  <div>
+                    <div className="text-[11px] uppercase tracking-[0.15em] text-gold font-bold">
+                      Sarah Cabmora Photography • Studio Invoice
+                    </div>
+                    <h4 className="font-serif text-[24px] font-bold mt-0.5">
+                      {selectedInvoice.id}
+                    </h4>
+                    <p className="text-[12.5px] text-ink/60">
+                      Issued {selectedInvoice.issued} • Due {selectedInvoice.due}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-[13px] font-semibold">{selectedInvoice.client}</div>
+                    <div className="text-[12px] text-ink/60">{selectedInvoice.clientEmail}</div>
+                    <div className="text-[12px] text-gold font-medium mt-0.5">
+                      {selectedInvoice.project}
+                    </div>
+                  </div>
+                </div>
+
+                <table className="w-full text-left text-[13px] border-collapse">
+                  <thead>
+                    <tr className="border-b border-ink/10 text-[11px] uppercase tracking-wider text-ink/50">
+                      <th className="py-2">Deliverable / Service</th>
+                      <th className="py-2 text-center">Qty</th>
+                      <th className="py-2 text-right">Amount</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-ink/5">
+                    {selectedInvoice.lineItems.map((item) => (
+                      <tr key={item.id}>
+                        <td className="py-3 font-medium">{item.description}</td>
+                        <td className="py-3 text-center text-ink/60">{item.quantity}</td>
+                        <td className="py-3 text-right font-semibold">
+                          ${(item.quantity * item.unitPrice).toLocaleString()}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot>
+                    <tr className="border-t border-ink/15 font-serif text-[18px] font-bold">
+                      <td colSpan={2} className="pt-4">
+                        Total Due
+                      </td>
+                      <td className="pt-4 text-right text-gold">
+                        ${selectedInvoice.amount.toLocaleString()}
+                      </td>
+                    </tr>
+                  </tfoot>
+                </table>
+
+                <p className="text-[12px] text-ink/65 bg-sand p-3.5 rounded-xl">
+                  {selectedInvoice.notes}
+                </p>
+
+                <div className="flex items-center justify-end gap-3">
+                  <button
+                    type="button"
+                    onClick={() => window.print()}
+                    className="px-4 py-2 rounded-xl border border-ink/15 text-[12.5px] font-medium hover:border-gold flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <Download size={14} />
+                    <span>Print / Download PDF</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedInvoice(null)}
+                    className="px-5 py-2 rounded-xl bg-gold text-ink text-[12.5px] font-semibold hover:bg-gold-dark cursor-pointer"
+                  >
+                    Done
+                  </button>
+                </div>
+              </div>
+            </Modal>
+          )}
         </>
       )}
     </PortalShell>

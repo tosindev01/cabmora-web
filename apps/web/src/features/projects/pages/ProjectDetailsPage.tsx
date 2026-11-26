@@ -16,6 +16,10 @@ import {
   Activity,
   UploadCloud,
   Sparkles,
+  AlertTriangle,
+  Navigation,
+  Share2,
+  CloudSun,
 } from 'lucide-react';
 import { PortalAvatar, PortalBell, PortalShell, PortalTopbar } from '@/shared/portal';
 import { Modal } from '@cabmora/ui';
@@ -28,12 +32,23 @@ import {
   type TaskStatus,
 } from '@cabmora/api-client';
 import { useAuth } from '@/shared/auth';
-import { PROJECT_DATA } from '@/features/projects/data';
+import {
+  INITIAL_PROJECTS,
+  PROJECT_DATA,
+  STAGES,
+  type Project,
+} from '@/features/projects/data';
 import {
   FigmaCommentWorkspace,
   type CanvasAssetItem,
 } from '@/shared/collaboration/FigmaCommentWorkspace';
 import { ProjectCallPanel } from '@/shared/collaboration/ProjectCallPanel';
+import {
+  PROJECT_WEATHER_FORECASTS,
+  formatLiveCountdown,
+  getProjectLogisticsMeta,
+  shareCompletedProjectToCommunity,
+} from '@/shared/collaboration/studioWorkspaceStore';
 
 type WorkspaceTab = 'canvas' | 'tasks' | 'calls' | 'activity';
 
@@ -45,9 +60,90 @@ export default function ProjectDetailsPage() {
   const { user } = useAuth();
   const isUuid = UUID_RE.test(id);
 
+  const matchedProject: Project = (() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const raw = window.localStorage.getItem('cabmora_studio_projects_v1');
+        if (raw) {
+          const list = JSON.parse(raw) as Project[];
+          const found = list.find((p) => String(p.id) === id);
+          if (found) return found;
+        }
+      } catch {
+        // ignore
+      }
+    }
+    return INITIAL_PROJECTS.find((p) => String(p.id) === id) ?? INITIAL_PROJECTS[0]!;
+  })();
+
   const [activeTab, setActiveTab] = useState<WorkspaceTab>('canvas');
-  const [stageLabel, setStageLabel] = useState(PROJECT_DATA.status);
-  const [progress, setProgress] = useState(PROJECT_DATA.progress);
+  const [stageLabel, setStageLabel] = useState<Project['status']>(matchedProject.status);
+  const [progress, setProgress] = useState(matchedProject.progress);
+  const [tick, setTick] = useState(0);
+
+  useEffect(() => {
+    setStageLabel(matchedProject.status);
+    setProgress(matchedProject.progress);
+  }, [matchedProject.id, matchedProject.status, matchedProject.progress]);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setTick((t) => t + 1), 1000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  const logistics = getProjectLogisticsMeta(id || '1', stageLabel);
+  const countdown = formatLiveCountdown(logistics.targetOffsetHours, tick);
+  const projectWeather =
+    PROJECT_WEATHER_FORECASTS.find((w) => w.projectId === String(matchedProject.id)) ??
+    PROJECT_WEATHER_FORECASTS[0]!;
+
+  const updateProjectStageAndSave = (nextStage: Project['status']) => {
+    let nextProgress = progress;
+    if (nextStage === 'Planning') nextProgress = 10;
+    else if (nextStage === 'Shooting') nextProgress = 30;
+    else if (nextStage === 'Culling') nextProgress = 50;
+    else if (nextStage === 'Editing') nextProgress = 70;
+    else if (nextStage === 'Review') nextProgress = 90;
+    else if (nextStage === 'Completed') nextProgress = 100;
+
+    setStageLabel(nextStage);
+    setProgress(nextProgress);
+
+    if (typeof window !== 'undefined') {
+      try {
+        const raw = window.localStorage.getItem('cabmora_studio_projects_v1');
+        const list: Project[] = raw ? (JSON.parse(raw) as Project[]) : INITIAL_PROJECTS;
+        const updated = list.map((p) =>
+          String(p.id) === String(matchedProject.id)
+            ? { ...p, status: nextStage, progress: nextProgress }
+            : p,
+        );
+        window.localStorage.setItem('cabmora_studio_projects_v1', JSON.stringify(updated));
+      } catch {
+        // ignore
+      }
+    }
+    showToast(`Project status updated to ${nextStage}.`);
+  };
+
+  const handleShareCompletedToCommunity = () => {
+    if (stageLabel !== 'Completed') {
+      showToast('Mark this project as Completed first to share to the Community!');
+      return;
+    }
+    shareCompletedProjectToCommunity({
+      projectId: String(matchedProject.id),
+      projectTitle: matchedProject.name,
+      projectType: matchedProject.type,
+      clientName: matchedProject.clientName,
+      location: matchedProject.location,
+      deliverablesSummary: matchedProject.deliverables,
+      caption: `Completed and delivered "${matchedProject.name}" in ${matchedProject.location} for ${matchedProject.clientName}. Open to creator and client collaborations!`,
+      mediaUrls: [matchedProject.image],
+      creatorName: user?.full_name || 'Sarah Cabmora',
+    });
+    showToast(`Shared completed job "${matchedProject.name}" to the Creator Community!`);
+  };
 
   // Tasks state
   const [tasks, setTasks] = useState<ProjectTaskDto[]>(() =>
@@ -343,42 +439,45 @@ export default function ProjectDetailsPage() {
           )}
 
           <PortalTopbar
-            title={PROJECT_DATA.name}
-            subtitle={`${PROJECT_DATA.client.name} • Event Date ${PROJECT_DATA.date}`}
+            title={matchedProject.name}
             onToggleSidebar={toggleSidebar}
             leading={
               <button
                 type="button"
                 aria-label="Back"
                 onClick={() => navigate(-1)}
-                className="text-ink/60 hover:text-ink transition-colors"
+                className="text-ink/60 hover:text-ink transition-colors shrink-0"
               >
                 <ChevronLeft size={20} />
               </button>
             }
           >
-            <button
-              type="button"
-              onClick={() => setActiveTab('calls')}
-              className="hidden sm:flex items-center gap-2 px-4 py-2 rounded-xl bg-gold text-ink text-[12px] font-semibold hover:bg-gold-dark transition-colors shadow-sm"
-            >
-              <Video size={15} />
-              <span>Request a Call</span>
-              {pendingCallsCount > 0 && (
-                <span className="px-1.5 py-0.5 rounded-full bg-noir text-gold text-[10px]">
-                  {pendingCallsCount}
+            {/* Topbar Live Countdown, Weather Forecast, Venue Distance & Deadline Warning Pill */}
+            <div className="hidden lg:flex items-center gap-2.5 px-3.5 py-1.5 rounded-full bg-canvas border border-ink/10 text-[11.5px] text-ink/75 whitespace-nowrap">
+              <span className="flex items-center gap-1 font-medium text-ink">
+                <Clock size={13} className="text-gold" />
+                <span className="font-mono font-semibold">
+                  {countdown.days}d {countdown.hours}h {countdown.mins}m
                 </span>
-              )}
-            </button>
-
-            <button
-              type="button"
-              onClick={() => navigate('/upload')}
-              className="hidden md:flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-ink/15 text-[12px] font-medium hover:border-gold transition-colors"
-            >
-              <UploadCloud size={15} className="text-gold" />
-              <span>Submit Deliverables</span>
-            </button>
+              </span>
+              <span className="text-ink/20">•</span>
+              <span className="flex items-center gap-1 font-medium text-ink">
+                <CloudSun size={13} className="text-gold" />
+                <span>
+                  {projectWeather.tempC}°C {projectWeather.condition.split(' ')[0]}
+                </span>
+              </span>
+              <span className="text-ink/20">•</span>
+              <span className="flex items-center gap-1">
+                <Navigation size={12} className="text-gold" />
+                {logistics.venueDistanceKm} km ({logistics.venueTravelTime})
+              </span>
+              <span className="text-ink/20">•</span>
+              <span className="flex items-center gap-1 text-amber-800 font-medium">
+                <AlertTriangle size={12} className="text-gold" />
+                {stageLabel === 'Completed' ? 'Delivered' : 'Due in 2 days'}
+              </span>
+            </div>
 
             <PortalBell />
             <PortalAvatar
@@ -395,8 +494,8 @@ export default function ProjectDetailsPage() {
             <div className="bg-white border border-ink/10 rounded-2xl p-5 lg:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
               <div className="lg:col-span-5 flex items-center gap-4">
                 <img
-                  src={PROJECT_DATA.image}
-                  alt={PROJECT_DATA.name}
+                  src={matchedProject.image}
+                  alt={matchedProject.name}
                   className="w-20 h-20 rounded-xl object-cover shrink-0 border border-ink/10"
                 />
                 <div className="min-w-0 space-y-1">
@@ -405,20 +504,22 @@ export default function ProjectDetailsPage() {
                       {stageLabel}
                     </span>
                     <span className="text-[11.5px] text-ink/55 flex items-center gap-1">
-                      <Calendar size={12} className="text-gold" /> {PROJECT_DATA.date}
+                      <Calendar size={12} className="text-gold" /> {matchedProject.date}
                     </span>
                     <span className="text-[11.5px] text-ink/55 flex items-center gap-1">
-                      <MapPin size={12} className="text-gold" /> {PROJECT_DATA.location}
+                      <MapPin size={12} className="text-gold" /> {matchedProject.location}
                     </span>
                   </div>
                   <h2 className="font-serif text-[22px] font-bold truncate">
-                    {PROJECT_DATA.name}
+                    {matchedProject.name}
                   </h2>
-                  <p className="text-[12.5px] text-ink/65 truncate">{PROJECT_DATA.description}</p>
+                  <p className="text-[12.5px] text-ink/65 truncate">
+                    Client: {matchedProject.clientName} • {matchedProject.deliverables}
+                  </p>
                 </div>
               </div>
 
-              <div className="lg:col-span-4 space-y-2">
+              <div className="lg:col-span-3 space-y-2">
                 <div className="flex items-center justify-between text-[12px]">
                   <span className="text-ink/60 font-medium">Project Completion</span>
                   <span className="font-bold text-gold">{progress}%</span>
@@ -437,28 +538,58 @@ export default function ProjectDetailsPage() {
                 </div>
               </div>
 
-              <div className="lg:col-span-3 flex flex-wrap lg:justify-end items-center gap-2">
+              <div className="lg:col-span-4 flex flex-wrap lg:justify-end items-center gap-2">
                 <select
                   value={stageLabel}
-                  onChange={(e) => {
-                    setStageLabel(e.target.value);
-                    if (e.target.value === 'Completed') setProgress(100);
-                    else if (e.target.value === 'Review') setProgress(85);
-                    else setProgress(65);
-                    showToast(`Project status updated to ${e.target.value}.`);
-                  }}
-                  className="bg-sand border border-ink/15 rounded-xl px-3 py-2 text-[12.5px] font-semibold outline-none focus:border-gold"
+                  onChange={(e) => updateProjectStageAndSave(e.target.value as Project['status'])}
+                  aria-label="Project status stage"
+                  className="bg-sand border border-ink/15 rounded-xl px-3 py-2 text-[12.5px] font-semibold outline-none focus:border-gold cursor-pointer"
                 >
-                  <option value="Planning">Planning</option>
-                  <option value="In Progress">In Progress</option>
-                  <option value="Review">In Review</option>
-                  <option value="Completed">Delivered / Completed</option>
+                  {STAGES.map((s) => (
+                    <option key={s} value={s}>
+                      {s}
+                    </option>
+                  ))}
                 </select>
 
                 <button
                   type="button"
+                  onClick={() => setActiveTab('calls')}
+                  className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-gold text-ink text-[12px] font-semibold hover:bg-gold-dark transition-colors cursor-pointer"
+                >
+                  <Video size={14} />
+                  <span>Request a Call</span>
+                  {pendingCallsCount > 0 && (
+                    <span className="px-1.5 py-0.5 rounded-full bg-noir text-gold text-[10px]">
+                      {pendingCallsCount}
+                    </span>
+                  )}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => navigate('/upload')}
+                  className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-ink/15 text-[12px] font-medium hover:border-gold transition-colors cursor-pointer"
+                >
+                  <UploadCloud size={14} className="text-gold" />
+                  <span>Submit Deliverables</span>
+                </button>
+
+                {stageLabel === 'Completed' && (
+                  <button
+                    type="button"
+                    onClick={handleShareCompletedToCommunity}
+                    className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-ink text-white hover:bg-gold hover:text-ink text-[12px] font-semibold transition-colors cursor-pointer"
+                  >
+                    <Share2 size={14} />
+                    <span>Share to Community</span>
+                  </button>
+                )}
+
+                <button
+                  type="button"
                   onClick={() => setIsPermissionsModalOpen(true)}
-                  className="px-3.5 py-2 rounded-xl border border-ink/15 text-[12px] font-medium hover:border-gold flex items-center gap-1.5"
+                  className="px-3.5 py-2 rounded-xl border border-ink/15 text-[12px] font-medium hover:border-gold flex items-center gap-1.5 cursor-pointer"
                 >
                   <Shield size={14} className="text-gold" /> Governance
                 </button>

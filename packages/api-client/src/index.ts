@@ -11,13 +11,23 @@ export * as creatorLandingApi from './creatorLanding';
 export * as supportApi from './support';
 export * as notificationsApi from './notifications';
 export type {
+  AiGeneratedInvoiceApiDto,
   BriefingActionItemDto,
   BriefingChatResponseDto,
   CallStatus,
+  ClientBriefingDto,
+  CommunityCollaborationRequestDto,
+  CommunityCommentDto,
+  CommunityFeedDto,
+  CommunityFollowerDto,
+  CommunityPostDto,
   CreatorBriefingDto,
+  CreatorReferralEntryDto,
+  CreatorReferralSummaryDto,
   ProjectCallDto,
   ProjectCommentDto,
   ProjectTaskDto,
+  ScreenSecurityStatusDto,
   TaskPriority,
   TaskStatus,
 } from './collaboration';

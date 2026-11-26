@@ -1,4 +1,4 @@
-import { CalendarDays, Camera, MapPin } from 'lucide-react';
+import { AlertTriangle, CalendarDays, Camera, Clock, MapPin, Navigation } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 import { formatMinor, nameCase, sentenceCase } from '@cabmora/ui';
@@ -10,6 +10,7 @@ import {
   formatDate,
   type ClientProject,
 } from '@/features/client/api';
+import { getProjectLogisticsMeta } from '@/shared/collaboration/studioWorkspaceStore';
 
 /**
  * One of the client's projects, as a card.
@@ -26,10 +27,11 @@ import {
  * All of it from the API; nothing here is a fixture.
  */
 export function ClientProjectCard({ project }: { project: ClientProject }) {
+  const logistics = getProjectLogisticsMeta(project.title, project.stage);
   return (
     <Link
       to={`/client/projects/${project.id}`}
-      className="border border-ink/10 bg-white rounded-xl p-6 hover:border-gold/50 transition-colors group flex flex-col"
+      className="border border-ink/10 bg-white rounded-xl p-6 hover:border-gold hover:-translate-y-0.5 hover:shadow-md transition-all group flex flex-col cursor-pointer"
     >
       <div className="flex items-start justify-between gap-3 mb-3">
         <div className="flex items-center gap-2 min-w-0">
@@ -74,6 +76,23 @@ export function ClientProjectCard({ project }: { project: ClientProject }) {
       {/* The stage in words. "Editing" tells a client where it is; this tells
           them what it means and whether anything is theirs to do. */}
       <p className="text-[12.5px] text-ink/70 leading-relaxed mt-4">{STAGE_NOTE[project.stage]}</p>
+
+      {/* Venue Distance, Countdown & Deadline Warning Strip */}
+      <div className="mt-4 p-3 rounded-xl bg-sand/70 border border-ink/10 space-y-1.5 text-[11.5px]">
+        <div className="flex items-center justify-between gap-2">
+          <span className="flex items-center gap-1.5 font-semibold text-ink">
+            <Navigation size={12} className="text-gold shrink-0" />
+            {logistics.venueDistanceKm} km to reach venue ({logistics.venueTravelTime})
+          </span>
+          <span className="flex items-center gap-1 font-mono text-[11px] font-bold text-gold">
+            <Clock size={11} /> {logistics.targetOffsetHours}h left
+          </span>
+        </div>
+        <div className="flex items-center gap-1.5 text-rose-700 font-medium text-[11px]">
+          <AlertTriangle size={12} className="shrink-0" />
+          <span className="truncate">{logistics.deadlineWarningText}</span>
+        </div>
+      </div>
 
       <div className="mt-5">
         <div className="flex items-center justify-between text-[11px] text-ink/55 mb-1.5">
