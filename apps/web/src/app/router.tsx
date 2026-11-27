@@ -35,6 +35,7 @@ import CabmoraAiPage from '@/features/projects/pages/CabmoraAiPage';
 import CreatorReferralsPage from '@/features/projects/pages/CreatorReferralsPage';
 import CommunityPage from '@/features/projects/pages/CommunityPage';
 import ClientBookingsPage from '@/features/projects/pages/ClientBookingsPage';
+import CreatorTeamPage from '@/features/projects/pages/CreatorTeamPage';
 
 import GalleriesPage from '@/features/media/pages/GalleriesPage';
 import MediaUploadPage from '@/features/media/pages/MediaUploadPage';
@@ -145,6 +146,7 @@ export default function AppRouter() {
           <Route path="/projects/:id" element={<ProjectDetailsPage />} />
           <Route path="/bookings" element={<ClientBookingsPage />} />
           <Route path="/community" element={<CommunityPage />} />
+          <Route path="/team" element={<CreatorTeamPage />} />
           <Route path="/ai" element={<CabmoraAiPage />} />
           <Route path="/referrals" element={<CreatorReferralsPage />} />
           <Route path="/galleries" element={<GalleriesPage />} />

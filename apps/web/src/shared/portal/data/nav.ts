@@ -11,6 +11,7 @@ import {
   Settings,
   Sparkles,
   User,
+  UserCheck,
   Users,
   type LucideIcon,
 } from 'lucide-react';
@@ -33,6 +34,7 @@ export const PORTAL_NAV: PortalNavItem[] = [
   { label: 'AI Assistants', to: '/ai', icon: Sparkles },
   { label: 'Client Bookings', to: '/bookings', icon: CalendarCheck },
   { label: 'Community', to: '/community', icon: Users },
+  { label: 'Team Management', to: '/team', icon: UserCheck },
   { label: 'Messages', to: '/messages', icon: MessageSquare },
   { label: 'Billing', to: '/billing', icon: CreditCard },
   { label: 'Storage Vault', to: '/storage', icon: HardDrive },

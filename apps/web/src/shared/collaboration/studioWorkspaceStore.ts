@@ -1230,10 +1230,91 @@ export function ensureRichClientBriefing(
 
 // ── LinkedIn-Style Creator & Client Community Store ─────────────────────────
 
-const COMMUNITY_STORAGE_KEY = 'cabmora_community_feed_v1';
+const COMMUNITY_STORAGE_KEY = 'cabmora_community_feed_v2';
 
 export const INITIAL_COMMUNITY_FEED: CommunityFeedDto = {
   posts: [
+    {
+      id: 'post-100',
+      project_id: 'comp-200',
+      project_title: 'Afrobeats Global Anthem — 4K Cinema Music Video',
+      project_type: 'Commercial',
+      client_name: 'burna & Atlantic Records UK',
+      location: 'Lagos, Nigeria',
+      venue_distance_km: 14.2,
+      completed_date: 'Completed & Delivered • 2h ago',
+      deliverables_summary: '4K Anamorphic Master Cut (03:45) + 12 Social Teasers',
+      creator_id: 'creator-klemzy',
+      creator_name: 'Klemzy Films',
+      creator_handle: '@klemzy_films',
+      creator_specialization: 'Lead Music Video Director & RED V-Raptor Cinematographer',
+      creator_avatar:
+        'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&h=150&fit=crop',
+      caption:
+        'On set for a new music video 🎬 Completed and delivered our 4K anamorphic master cut on time. Open to collaborating with colorists, drone pilots, and record labels!',
+      media_urls: [
+        'https://images.unsplash.com/photo-1574717024653-61fd2cf4d44d?w=1000&h=650&fit=crop',
+      ],
+      likes_count: 243,
+      liked_by_me: true,
+      comments: [
+        {
+          id: 'cm-100a',
+          author_name: 'Grace Visuals',
+          author_role: 'creator',
+          author_avatar:
+            'https://images.unsplash.com/photo-1531123897727-8f129e1688ce?w=150&h=150&fit=crop',
+          text: 'The anamorphic flare and cinema rig setup look unreal! Let’s collaborate on the London leg.',
+          created_at: '45m ago',
+        },
+        {
+          id: 'cm-100b',
+          author_name: 'Elena Vance',
+          author_role: 'client',
+          author_avatar:
+            'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=150&h=150&fit=crop',
+          text: 'Incredible lighting depth — sending a booking inquiry for our summer campaign reel.',
+          created_at: '20m ago',
+        },
+      ],
+      created_at: '2h ago',
+    },
+    {
+      id: 'post-100b',
+      project_id: 'comp-201',
+      project_title: 'Golden Sunset Architectural & Editorial Campaign',
+      project_type: 'Editorial',
+      client_name: 'Eko Luxury Resorts',
+      location: 'Lagos, Nigeria',
+      venue_distance_km: 8.5,
+      completed_date: 'Completed & Delivered • 3h ago',
+      deliverables_summary: '65 Medium-Format Sunset Plates + Architectural Lookbook',
+      creator_id: 'creator-grace',
+      creator_name: 'Grace Visuals',
+      creator_handle: '@grace_visuals',
+      creator_specialization: 'Luxury Editorial & Architectural Sunset Photographer',
+      creator_avatar:
+        'https://images.unsplash.com/photo-1531123897727-8f129e1688ce?w=150&h=150&fit=crop',
+      caption:
+        'Golden hour skyline and editorial portraits wrapped & delivered for Eko Luxury Resorts ✨ Ready for destination shoots across Lagos, London, and Milan.',
+      media_urls: [
+        'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=1000&h=650&fit=crop',
+      ],
+      likes_count: 189,
+      liked_by_me: false,
+      comments: [
+        {
+          id: 'cm-100c',
+          author_name: 'Lens Pro',
+          author_role: 'creator',
+          author_avatar:
+            'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&h=150&fit=crop',
+          text: 'That dynamic range in the sunset sky is pure gold!',
+          created_at: '1h ago',
+        },
+      ],
+      created_at: '3h ago',
+    },
     {
       id: 'post-101',
       project_id: '4',
@@ -1278,7 +1359,7 @@ export const INITIAL_COMMUNITY_FEED: CommunityFeedDto = {
           created_at: '35m ago',
         },
       ],
-      created_at: '2 hours ago',
+      created_at: '5h ago',
     },
     {
       id: 'post-102',
@@ -1315,7 +1396,7 @@ export const INITIAL_COMMUNITY_FEED: CommunityFeedDto = {
           created_at: '3h ago',
         },
       ],
-      created_at: '5 hours ago',
+      created_at: '6h ago',
     },
     {
       id: 'post-103',
@@ -1342,7 +1423,7 @@ export const INITIAL_COMMUNITY_FEED: CommunityFeedDto = {
       likes_count: 62,
       liked_by_me: false,
       comments: [],
-      created_at: '1 day ago',
+      created_at: '1d ago',
     },
   ],
   followers: [
