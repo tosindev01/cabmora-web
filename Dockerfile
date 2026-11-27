@@ -44,15 +44,21 @@ RUN rm /etc/nginx/conf.d/default.conf
 # /etc/nginx/conf.d/. That is how API_UPSTREAM gets injected without rebuilding
 # the image — the same artefact runs against a local API or a production one.
 #
-# NGINX_ENVSUBST_FILTER restricts substitution to these two so nginx's own
-# runtime variables ($host, $uri, $request_uri, ...) are left untouched.
-# Both vars must be listed, or envsubst silently skips the missing one and
-# nginx fails to start on an unparsable `listen ;` directive.
-ENV NGINX_ENVSUBST_FILTER="(API_UPSTREAM|PORT)"
+# NGINX_ENVSUBST_FILTER restricts substitution to these three so nginx's own
+# runtime variables ($host, $uri, $request_uri, $cabmora_api, ...) are left
+# untouched. Every var must be listed, or envsubst silently skips the missing
+# one and nginx fails to start on an unparsable `listen ;` or `resolver ;`.
+ENV NGINX_ENVSUBST_FILTER="(API_UPSTREAM|PORT|NGINX_RESOLVER)"
 ENV API_UPSTREAM="api:8000"
 # Local default. Railway overrides PORT at runtime.
 ENV PORT=8080
 COPY apps/web/nginx.conf.template /etc/nginx/templates/cabmora.conf.template
+
+# Sourced by the nginx entrypoint before envsubst runs, so NGINX_RESOLVER is
+# set by the time the template is rendered. `.envsh` matters: the entrypoint
+# sources those and merely executes `.sh`, which would export nothing.
+COPY apps/shared-nginx/15-resolver.envsh /docker-entrypoint.d/15-resolver.envsh
+RUN chmod +x /docker-entrypoint.d/15-resolver.envsh
 
 COPY --from=builder /repo/apps/web/dist /usr/share/nginx/html
 
