@@ -49,6 +49,11 @@ server {
         return 301 https://cabmoramedia.com$request_uri;
     }
 
+    if ($host ~* ^admin\.) {
+        rewrite ^/$ /admin/dashboard redirect;
+        rewrite ^/login$ /admin/login redirect;
+    }
+
 
     # Re-resolve the upstream on every request instead of once at startup.
     #
@@ -171,6 +176,17 @@ server {
         add_header Cache-Control "public, immutable";
         access_log off;
         try_files $uri =404;
+    }
+
+    # ── Admin Console SPA (/admin and /admin/*) ──────────────
+    # Serves the built @cabmora/admin bundle directly so visiting /admin/team
+    # or /admin/login works on the main deployment as well as on admin.* hosts
+    # instead of falling through to apps/web's catch-all redirect to `/`.
+    location ^~ /admin {
+        root /usr/share/nginx;
+        try_files $uri /admin/index.html;
+        add_header X-Robots-Tag "noindex, nofollow, noarchive" always;
+        add_header Cache-Control "no-cache, no-store, must-revalidate" always;
     }
 
     # ── SPA fallback ─────────────────────────────────────────

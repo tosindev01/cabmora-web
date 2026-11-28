@@ -18,12 +18,12 @@ COPY packages/ui/package.json     packages/ui/
 COPY packages/api-client/package.json packages/api-client/
 RUN npm ci
 
-# Only what this app needs to build.
 COPY packages/ packages/
 COPY apps/web/ apps/web/
+COPY apps/admin/ apps/admin/
 
 # "tsc && vite build" — a type error fails the build, which is intended.
-RUN npm run build --workspace @cabmora/web
+RUN npm run build --workspace @cabmora/web && npm run build --workspace @cabmora/admin
 
 
 FROM nginx:1.27-alpine AS runtime
@@ -51,6 +51,8 @@ COPY apps/shared-nginx/15-resolver.envsh /docker-entrypoint.d/15-resolver.envsh
 RUN chmod +x /docker-entrypoint.d/15-resolver.envsh
 
 COPY --from=builder /repo/apps/web/dist /usr/share/nginx/html
+COPY --from=builder /repo/apps/admin/dist /usr/share/nginx/admin
+COPY --from=builder /repo/apps/admin/dist/assets/ /usr/share/nginx/html/assets/
 
 # See apps/web/nginx.conf.template for why 8080 rather than 80.
 EXPOSE 8080

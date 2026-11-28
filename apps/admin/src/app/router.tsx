@@ -66,7 +66,7 @@ function RequireAdmin({ children }: { children: ReactNode }) {
   }
 
   if (!staff) {
-    return <Navigate to="/login" replace />;
+    return <Navigate to="/admin/login" replace />;
   }
   return <>{children}</>;
 }
@@ -82,13 +82,15 @@ function AdminShell() {
 
 export default function AdminRouter() {
   const { staff } = useAdminAuth();
-  const home = staff ? landingPath(staff.role) : '/login';
+  const home = staff ? landingPath(staff.role) : '/admin/login';
 
   return (
     <Routes>
       <Route path="/" element={<Navigate to={home} replace />} />
       <Route path="/login" element={<AdminLoginPage />} />
+      <Route path="/admin/login" element={<AdminLoginPage />} />
       <Route path="/accept-invite" element={<AcceptInvitePage />} />
+      <Route path="/admin/accept-invite" element={<AcceptInvitePage />} />
 
       <Route element={<AdminShell />}>
         {/* Routes this role may not open are not registered at all, so the

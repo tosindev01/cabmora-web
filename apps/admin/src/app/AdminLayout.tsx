@@ -98,7 +98,7 @@ export default function AdminLayout() {
     // Server-side: only it can clear an HttpOnly cookie. `signOut` drops the
     // local state even if the request fails, so this always leaves the console.
     await signOut();
-    navigate('/login', { replace: true });
+    navigate('/admin/login', { replace: true });
   };
 
   return (

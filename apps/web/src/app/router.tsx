@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
 
 import LandingPage from '@/features/marketing/pages/LandingPage';
@@ -64,6 +65,22 @@ import { useDocumentMeta } from '@/shared/seo';
  * `/login` and `/signup` use apps/web's own auth screens, not the designer's
  * duplicates of them.
  */
+/**
+ * In local Vite development (`localhost:5173`), `/admin/*` lives on the Admin
+ * Console Vite server (`localhost:5174`). In production Docker/Railway, Nginx
+ * serves the built Admin Console SPA directly at `/admin/*` and on `admin.*`.
+ */
+function AdminConsoleBridge() {
+  useEffect(() => {
+    const { protocol, hostname, port, pathname, search, hash } = window.location;
+    if (port === '5173') {
+      const targetPath = pathname.startsWith('/admin') ? pathname : `/admin${pathname}`;
+      window.location.replace(`${protocol}//${hostname}:5174${targetPath}${search}${hash}`);
+    }
+  }, []);
+  return null;
+}
+
 export default function AppRouter() {
   // Once, here. A hook each page had to call is a hook the next page forgets,
   // and the symptom — one screen sharing with the wrong title — is invisible
@@ -175,6 +192,10 @@ export default function AppRouter() {
           <Route path="/client/billing" element={<ClientBillingPage />} />
           <Route path="/client/settings" element={<ClientSettingsPage />} />
         </Route>
+
+        {/* Admin Console bridge for local dev (in production, Nginx serves apps/admin at /admin/*) */}
+        <Route path="/admin" element={<AdminConsoleBridge />} />
+        <Route path="/admin/*" element={<AdminConsoleBridge />} />
 
         {/* Any unknown path falls back to the landing page. */}
         <Route path="*" element={<Navigate to="/" replace />} />
